@@ -1,20 +1,2 @@
-﻿  camera.cpp
-  engine.cpp
-  graphics.cpp
-C:\Users\Adarsha\source\repos\CS680TermProjectFinal\CS680TermProjectFinal\graphics.cpp(176,25): warning C4305: 'argument': truncation from 'double' to 'GLclampf'
-C:\Users\Adarsha\source\repos\CS680TermProjectFinal\CS680TermProjectFinal\graphics.cpp(176,20): warning C4305: 'argument': truncation from 'double' to 'GLclampf'
-  main.cpp
-  mesh.cpp
-C:\Users\Adarsha\source\repos\CS680TermProjectFinal\CS680TermProjectFinal\mesh.cpp(99,43): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
-C:\Users\Adarsha\source\repos\CS680TermProjectFinal\CS680TermProjectFinal\mesh.cpp(140,43): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
-C:\Users\Adarsha\source\repos\CS680TermProjectFinal\CS680TermProjectFinal\mesh.cpp(212,20): warning C4018: '<': signed/unsigned mismatch
-C:\Users\Adarsha\source\repos\CS680TermProjectFinal\CS680TermProjectFinal\mesh.cpp(214,21): warning C4018: '<': signed/unsigned mismatch
-  object.cpp
-C:\Users\Adarsha\source\repos\CS680TermProjectFinal\CS680TermProjectFinal\object.cpp(73,43): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
-  shader.cpp
-  sphere.cpp
-C:\Users\Adarsha\source\repos\CS680TermProjectFinal\CS680TermProjectFinal\sphere.cpp(96,46): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
-  Texture.cpp
-  window.cpp
-  Generating Code...
+﻿  graphics.cpp
   CS680TermProjectFinal.vcxproj -> C:\Users\Adarsha\source\repos\CS680TermProjectFinal\x64\Debug\CS680TermProjectFinal.exe

@@ -37,54 +37,63 @@ bool Shader::AddShader(GLenum ShaderType)
 {
   std::string s;
 
-  if(ShaderType == GL_VERTEX_SHADER)
+  if (ShaderType == GL_VERTEX_SHADER)
   {
-    s = "#version 460\n \
-          \
-          layout (location = 0) in vec3 v_position; \
-          layout (location = 1) in vec3 v_color; \
-          layout (location = 2) in vec2 v_tc;  \
-             \
-          out vec3 color; \
-          out vec2 tc;\
-          \
-          uniform mat4 projectionMatrix; \
-          uniform mat4 viewMatrix; \
-          uniform mat4 modelMatrix; \
-          uniform bool hasTC;        \
-          uniform sampler2D sp; \
-          \
-          void main(void) \
-          { \
-            vec4 v = vec4(v_position, 1.0); \
-            gl_Position = (projectionMatrix * viewMatrix * modelMatrix) * v; \
-            color = v_color; \
-            tc = v_tc;\
-          } \
-          ";
+      s = "#version 460\n"
+          "layout (location = 0) in vec3 v_position;\n"
+          "layout (location = 1) in vec3 v_color;\n"
+          "layout (location = 2) in vec2 v_tc;\n"
+          "out vec3 v_normal;\n"
+          "out vec3 v_fragPos;\n"
+          "out vec3 color;\n"
+          "out vec2 tc;\n"
+          "uniform mat4 projectionMatrix;\n"
+          "uniform mat4 viewMatrix;\n"
+          "uniform mat4 modelMatrix;\n"
+          "void main(void)\n"
+          "{\n"
+          "  vec4 v = vec4(v_position, 1.0);\n"
+          "  gl_Position = (projectionMatrix * viewMatrix * modelMatrix) * v;\n"
+          "  v_normal  = mat3(transpose(inverse(modelMatrix))) * v_color;\n"
+          "  v_fragPos = vec3(modelMatrix * v);\n"
+          "  color = v_color;\n"
+          "  tc = v_tc;\n"
+          "}\n";
   }
-  else if(ShaderType == GL_FRAGMENT_SHADER)
+  else if (ShaderType == GL_FRAGMENT_SHADER)
   {
-    s = "#version 460\n \
-          \
-          uniform sampler2D sp; \
-          \
-          in vec3 color; \
-          in vec2 tc;\
-          uniform bool hasTexture;\
-          \
-          out vec4 frag_color; \
-          \
-          void main(void) \
-          { \
-             if(hasTexture)\
-               frag_color = texture(sp, tc);\
-            \
-            else \
-			   frag_color =vec4(color, 1.0);\
-          } \
-          ";
+      s = "#version 460\n"
+          "uniform sampler2D sp;\n"
+          "uniform bool hasTexture;\n"
+          "uniform vec3 lightPos;\n"
+          "uniform vec3 viewPos;\n"
+          "uniform vec3 lightColor;\n"
+          "uniform float ambientStrength;\n"
+          "uniform float specularStrength;\n"
+          "in vec3 v_normal;\n"
+          "in vec3 v_fragPos;\n"
+          "in vec3 color;\n"
+          "in vec2 tc;\n"
+          "out vec4 frag_color;\n"
+          "void main(void)\n"
+          "{\n"
+          "  vec3 texColor = hasTexture ? vec3(texture(sp, tc)) : color;\n"
+          "  // Ambient\n"
+          "  vec3 ambient = ambientStrength * lightColor * texColor;\n"
+          "  // Diffuse\n"
+          "  vec3 norm     = normalize(v_normal);\n"
+          "  vec3 lightDir = normalize(lightPos - v_fragPos);\n"
+          "  float diff    = max(dot(norm, lightDir), 0.0);\n"
+          "  vec3 diffuse  = diff * lightColor * texColor;\n"
+          "  // Specular\n"
+          "  vec3 viewDir    = normalize(viewPos - v_fragPos);\n"
+          "  vec3 reflectDir = reflect(-lightDir, norm);\n"
+          "  float spec      = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);\n"
+          "  vec3 specular   = specularStrength * spec * lightColor;\n"
+          "  frag_color = vec4(ambient + diffuse + specular, 1.0);\n"
+          "}\n";
   }
+
 
   GLuint ShaderObj = glCreateShader(ShaderType);
 

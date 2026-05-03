@@ -148,6 +148,11 @@ void Mesh::Render(GLint posAttribLoc, GLint colAttribLoc, GLint tcAttribLoc, GLi
 
 
 bool Mesh::InitBuffers() {
+	// Guard against empty geometry
+	if (Vertices.empty() || Indices.empty()) {
+		printf("Mesh::InitBuffers() - no geometry to upload, skipping.\n");
+		return false;
+	}
 
 	// For OpenGL 3
 	glGenVertexArrays(1, &vao);

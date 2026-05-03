@@ -17,6 +17,10 @@ public:
     void ProcessMouseMovement(float xoffset, float yoffset);
     void ProcessMouseScroll(float yoffset);
 
+    void SetThirdPerson(glm::vec3 shipPos, glm::vec3 shipForward, glm::vec3 shipUp, glm::vec3 shipRight);
+    void SetThirdPersonSmooth(glm::vec3 shipPos, glm::vec3 shipForward,
+        glm::vec3 shipUp, float dt);
+
     // Directions
     enum MoveDir { FORWARD, BACKWARD, LEFT, RIGHT };
 
@@ -42,5 +46,6 @@ private:
 
     glm::mat4 projection;
     glm::mat4 view;
+    bool m_thirdPerson = true;
 };
 #endif /* CAMERA_H */

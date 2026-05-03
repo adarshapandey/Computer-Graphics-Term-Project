@@ -55,40 +55,63 @@ void Engine::Run()
         float currentFrame = (float)glfwGetTime();
         float deltaTime = currentFrame - m_lastFrame;
         m_lastFrame = currentFrame;
+        m_deltaTime = deltaTime;
 
         ProcessInput(deltaTime);
-        Display(m_window->getWindow(), currentFrame);
+        Display(m_window->getWindow(), currentFrame, deltaTime);  // pass BOTH
         glfwPollEvents();
     }
     m_running = false;
 }
 
+//void Engine::ProcessInput(float deltaTime)
+//{
+//    GLFWwindow* win = m_window->getWindow();
+//    Camera* cam = m_graphics->getCamera();
+//
+//    if (glfwGetKey(win, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+//        glfwSetWindowShouldClose(win, true);
+//
+//    // Ship controls for exploration mode
+//    if (glfwGetKey(win, GLFW_KEY_W) == GLFW_PRESS)
+//        m_graphics->setKeyState(Graphics::FWD, true);
+//    else
+//        m_graphics->setKeyState(Graphics::FWD, false);
+//    if (glfwGetKey(win, GLFW_KEY_S) == GLFW_PRESS)
+//        m_graphics->setKeyState(Graphics::BACK, true);
+//    else
+//        m_graphics->setKeyState(Graphics::BACK, false);
+//    if (glfwGetKey(win, GLFW_KEY_Q) == GLFW_PRESS)
+//        m_graphics->setKeyState(Graphics::ROLL_L, true);
+//    else
+//        m_graphics->setKeyState(Graphics::ROLL_L, false);
+//    if (glfwGetKey(win, GLFW_KEY_E) == GLFW_PRESS)
+//        m_graphics->setKeyState(Graphics::ROLL_R, true);
+//    else
+//        m_graphics->setKeyState(Graphics::ROLL_R, false);
+//
+//    // Update view/projection matrices after any input
+//    cam->Update();
+//}
+
 void Engine::ProcessInput(float deltaTime)
 {
     GLFWwindow* win = m_window->getWindow();
-    Camera* cam = m_graphics->getCamera();
 
     if (glfwGetKey(win, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(win, true);
 
-    // WASD camera movement
-    if (glfwGetKey(win, GLFW_KEY_W) == GLFW_PRESS)
-        cam->ProcessKeyboard(Camera::FORWARD, deltaTime);
-    if (glfwGetKey(win, GLFW_KEY_S) == GLFW_PRESS)
-        cam->ProcessKeyboard(Camera::BACKWARD, deltaTime);
-    if (glfwGetKey(win, GLFW_KEY_A) == GLFW_PRESS)
-        cam->ProcessKeyboard(Camera::LEFT, deltaTime);
-    if (glfwGetKey(win, GLFW_KEY_D) == GLFW_PRESS)
-        cam->ProcessKeyboard(Camera::RIGHT, deltaTime);
+    m_graphics->setKeyState(Graphics::FWD, glfwGetKey(win, GLFW_KEY_W) == GLFW_PRESS);
+    m_graphics->setKeyState(Graphics::BACK, glfwGetKey(win, GLFW_KEY_S) == GLFW_PRESS);
+    m_graphics->setKeyState(Graphics::ROLL_L, glfwGetKey(win, GLFW_KEY_Q) == GLFW_PRESS);
+    m_graphics->setKeyState(Graphics::ROLL_R, glfwGetKey(win, GLFW_KEY_E) == GLFW_PRESS);
 
-    // Update view/projection matrices after any input
-    cam->Update();
+    m_graphics->getCamera()->Update();
 }
 
 void Engine::cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
     if (!s_instance) return;
-    Camera* cam = s_instance->m_graphics->getCamera();
 
     float fx = (float)xpos;
     float fy = (float)ypos;
@@ -100,14 +123,13 @@ void Engine::cursor_position_callback(GLFWwindow* window, double xpos, double yp
         return;
     }
 
-    float xoffset = (fx - s_instance->m_lastX);  // right = positive yaw
-    float yoffset = (s_instance->m_lastY - fy);  // up = positive pitch (Y flipped)
+    float xoffset = fx - s_instance->m_lastX;
+    float yoffset = s_instance->m_lastY - fy;  // inverted once only, no double-negate
 
     s_instance->m_lastX = fx;
     s_instance->m_lastY = fy;
 
-    cam->ProcessMouseMovement(xoffset, yoffset);
-    cam->Update();
+    s_instance->m_graphics->setMouseDelta(xoffset, yoffset);  // no negation here
 }
 
 void Engine::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
@@ -118,9 +140,24 @@ void Engine::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     cam->Update();
 }
 
-void Engine::Display(GLFWwindow* window, double time)
+void Engine::Display(GLFWwindow* window, double absoluteTime, float deltaTime)
 {
-    m_graphics->HierarchicalUpdate2(time);
+    m_graphics->HierarchicalUpdate2(absoluteTime, deltaTime);  // split time params
+
+    //m_graphics->getCamera()->SetThirdPerson(
+    //    m_graphics->getShipPosition(),
+    //    m_graphics->getShipForward(),
+    //    m_graphics->getShipUp(),
+    //    m_graphics->getShipRight()
+    //);
+
+    m_graphics->getCamera()->SetThirdPersonSmooth(   //  use smooth version
+        m_graphics->getShipPosition(),
+        m_graphics->getShipForward(),
+        m_graphics->getShipUp(),
+        deltaTime                                     // pass dt for lerp
+    );
+
     m_graphics->Render();
     m_window->Swap();
 }

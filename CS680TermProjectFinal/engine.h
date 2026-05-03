@@ -14,7 +14,8 @@ public:
     void ProcessInput(float deltaTime);
     unsigned int getDT();
     long long GetCurrentTimeMillis();
-    void Display(GLFWwindow*, double);
+    void Display(GLFWwindow* window, double absoluteTime, float deltaTime);
+
 
     // Static GLFW callbacks — need access to engine instance
     static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
@@ -36,6 +37,8 @@ private:
     float m_lastX = 400.f;
     float m_lastY = 300.f;
     bool  m_firstMouse = true;
+    float m_deltaTime = 0.f;
+
 
     // Timing
     float m_lastFrame = 0.f;

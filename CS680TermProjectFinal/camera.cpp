@@ -84,3 +84,35 @@ void Camera::ProcessMouseScroll(float yoffset)
     if (fov < 5.f)  fov = 5.f;
     if (fov > 90.f)  fov = 90.f;
 }
+
+void Camera::SetThirdPerson(glm::vec3 shipPos, glm::vec3 shipForward, glm::vec3 shipUp, glm::vec3 shipRight)
+{
+    float followDist = 5.0f;
+    float followUp = 1.5f;
+    cameraPos = shipPos - shipForward * followDist + shipUp * followUp;
+    //cameraFront = shipForward;
+    cameraFront = glm::normalize((shipPos + shipForward * 2.0f) - cameraPos); // look slightly ahead of ship
+    cameraUp = shipUp;
+    Update();
+}
+
+void Camera::SetThirdPersonSmooth(glm::vec3 shipPos, glm::vec3 shipForward,
+    glm::vec3 shipUp, float dt)
+{
+    float followDist = 5.0f;
+    float followUp = 1.5f;
+    float lerpSpeed = 5.0f;   // how fast camera catches up (lower = more lag)
+
+    // Where the camera WANTS to be
+    glm::vec3 desiredPos = shipPos - shipForward * followDist + shipUp * followUp;
+
+    // Smoothly move camera toward desired position
+    cameraPos = glm::mix(cameraPos, desiredPos, lerpSpeed * dt);
+
+    // Always look at a point slightly ahead of the ship
+    glm::vec3 lookTarget = shipPos + shipForward * 2.0f;
+    cameraFront = glm::normalize(glm::mix(cameraFront, glm::normalize(lookTarget - cameraPos), lerpSpeed * dt));
+
+    cameraUp = shipUp;
+    Update();
+}

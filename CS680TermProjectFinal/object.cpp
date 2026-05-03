@@ -79,7 +79,10 @@ void Object::Render(GLint posAttribLoc, GLint colAttribLoc)
 
 
 bool Object::InitBuffers() {
-
+	if (Vertices.empty() || Indices.empty()) {
+		printf("Object::InitBuffers() - empty geometry, skipping.\n");
+		return false;
+	}
 	// For OpenGL 3
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
