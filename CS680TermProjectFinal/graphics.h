@@ -34,7 +34,7 @@ class Graphics
     glm::vec3 getShipRight()    { return m_shipRight; }
 
     // Input
-    enum ShipKey { FWD, BACK, LEFT, RIGHT, ROLL_L, ROLL_R };
+    enum ShipKey { FWD, BACK, LEFT, RIGHT, ROLL_L, ROLL_R, PITCH_UP, PITCH_DOWN};
     void setKeyState(int key, bool pressed);
     void setMouseDelta(float dx, float dy);
 
@@ -110,10 +110,12 @@ class Graphics
     float m_shipAccel         = 5.f;
 
     // Input state
-    bool m_keyFwd = false, m_keyBack = false, m_keyLeft = false, m_keyRight = false, m_keyRollL = false, m_keyRollR = false;
+    bool m_keyFwd = false, m_keyBack = false, m_keyLeft = false, m_keyRight = false,
+        m_keyRollL = false, m_keyRollR = false,
+        m_keyPitchUp = false, m_keyPitchDown = false;
     float m_mouseDX = 0.f, m_mouseDY = 0.f;
 
-    void UpdateShip(float dt, bool fwd, bool back, bool left, bool right, bool rollLeft, bool rollRight, float mouseDX, float mouseDY);
+    void UpdateShip(float dt, bool fwd, bool back, bool left, bool right, bool rollLeft, bool rollRight, bool pitchUp, bool pitchDown, float mouseDX, float mouseDY);
 
 
 

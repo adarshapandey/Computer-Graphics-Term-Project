@@ -101,10 +101,19 @@ void Engine::ProcessInput(float deltaTime)
     if (glfwGetKey(win, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(win, true);
 
+    // Mode toggle with TAB (edge-triggered so one press = one toggle)
+    bool tabNow = glfwGetKey(win, GLFW_KEY_TAB) == GLFW_PRESS;
+    if (tabNow && !m_tabWasPressed) {
+        m_gameMode = (m_gameMode == EXPLORATION) ? PLANETARY : EXPLORATION;
+    }
+    m_tabWasPressed = tabNow;
+
     m_graphics->setKeyState(Graphics::FWD, glfwGetKey(win, GLFW_KEY_W) == GLFW_PRESS);
     m_graphics->setKeyState(Graphics::BACK, glfwGetKey(win, GLFW_KEY_S) == GLFW_PRESS);
     m_graphics->setKeyState(Graphics::ROLL_L, glfwGetKey(win, GLFW_KEY_Q) == GLFW_PRESS);
     m_graphics->setKeyState(Graphics::ROLL_R, glfwGetKey(win, GLFW_KEY_E) == GLFW_PRESS);
+    m_graphics->setKeyState(Graphics::PITCH_UP, glfwGetKey(win, GLFW_KEY_UP) == GLFW_PRESS);
+    m_graphics->setKeyState(Graphics::PITCH_DOWN, glfwGetKey(win, GLFW_KEY_DOWN) == GLFW_PRESS);
 
     m_graphics->getCamera()->Update();
 }
@@ -151,12 +160,14 @@ void Engine::Display(GLFWwindow* window, double absoluteTime, float deltaTime)
     //    m_graphics->getShipRight()
     //);
 
-    m_graphics->getCamera()->SetThirdPersonSmooth(   //  use smooth version
-        m_graphics->getShipPosition(),
-        m_graphics->getShipForward(),
-        m_graphics->getShipUp(),
-        deltaTime                                     // pass dt for lerp
-    );
+    if (m_gameMode == EXPLORATION) {
+        m_graphics->getCamera()->SetThirdPersonSmooth(
+            m_graphics->getShipPosition(),
+            m_graphics->getShipForward(),
+            m_graphics->getShipUp(),
+            deltaTime
+        );
+    }
 
     m_graphics->Render();
     m_window->Swap();

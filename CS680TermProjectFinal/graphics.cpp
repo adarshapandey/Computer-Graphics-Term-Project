@@ -13,6 +13,8 @@ void Graphics::setKeyState(int key, bool pressed) {
 		case Graphics::RIGHT: m_keyRight = pressed; break;
 		case Graphics::ROLL_L: m_keyRollL = pressed; break;
 		case Graphics::ROLL_R: m_keyRollR = pressed; break;
+		case Graphics::PITCH_UP:   m_keyPitchUp = pressed; break;
+		case Graphics::PITCH_DOWN: m_keyPitchDown = pressed; break;
 	}
 }
 void createRingMesh(float innerR, float outerR, int segments, const char* texFile);
@@ -212,36 +214,62 @@ void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 	m_sphere->Update(sunModel);
 
 	// Planets: Mercury
-	ComputeTransforms(at, {4.7f,0.f,4.7f}, {4.f,0.f,4.f}, {0.5f}, glm::vec3(0,1,0), {0.2f,0.2f,0.2f}, tmat, rmat, smat);
-	glm::mat4 mercuryModel = glm::rotate(glm::mat4(1.f), glm::radians(0.03f), glm::vec3(0,0,1)) * tmat * rmat * smat;
+	//ComputeTransforms(at, {4.7f,0.f,4.7f}, {4.f,0.f,4.f}, {0.5f}, glm::vec3(0,1,0), {0.2f,0.2f,0.2f}, tmat, rmat, smat);
+	ComputeTransforms(at, { 4.7f,0.f,4.7f }, { 5.f,0.f,5.f }, { 2.0f }, glm::vec3(0, 1, 0), { 0.2f,0.2f,0.2f }, tmat, rmat, smat);
+	glm::mat4 mercuryModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(0.03f), glm::vec3(0,0,1)) * rmat * smat;
 	m_mercury->Update(mercuryModel);
 
 	// Venus
-	ComputeTransforms(at, {3.5f,0.f,3.5f}, {6.f,0.f,6.f}, {0.3f}, glm::vec3(0,1,0), {0.5f,0.5f,0.5f}, tmat, rmat, smat);
-	glm::mat4 venusModel = glm::rotate(glm::mat4(1.f), glm::radians(177.f), glm::vec3(0,0,1)) * tmat * rmat * smat;
+	//ComputeTransforms(at, {3.5f,0.f,3.5f}, {6.f,0.f,6.f}, {0.3f}, glm::vec3(0,1,0), {0.5f,0.5f,0.5f}, tmat, rmat, smat);
+	ComputeTransforms(at, { 3.5f,0.f,3.5f }, { 8.f,0.f,8.f }, { 1.5f }, glm::vec3(0, 1, 0), { 0.5f,0.5f,0.5f }, tmat, rmat, smat);
+	glm::mat4 venusModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(177.f), glm::vec3(0,0,1)) * rmat * smat;
 	m_venus->Update(venusModel);
 
 	// Earth (existing)
-	ComputeTransforms(at, {3.0f,0.f,3.0f}, {9.f,0.f,9.f}, {1.5f}, glm::vec3(0,1,0), {0.5f,0.5f,0.5f}, tmat, rmat, smat);
-	glm::mat4 earthModel = glm::rotate(glm::mat4(1.f), glm::radians(23.4f), glm::vec3(0,0,1)) * tmat * rmat * smat;
+	//ComputeTransforms(at, {3.0f,0.f,3.0f}, {9.f,0.f,9.f}, {1.5f}, glm::vec3(0,1,0), {0.5f,0.5f,0.5f}, tmat, rmat, smat);
+	ComputeTransforms(at, { 3.0f,0.f,3.0f }, { 11.f,0.f,11.f }, { 1.2f }, glm::vec3(0, 1, 0), { 0.5f,0.5f,0.5f }, tmat, rmat, smat);
+	glm::mat4 earthModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(23.4f), glm::vec3(0,0,1)) * rmat * smat;
 	m_sphere2->Update(earthModel);
 
 	// Moon around Earth (reuse previous approach)
-	glm::mat4 moonTilt = glm::rotate(glm::mat4(1.f), glm::radians(30.f), glm::vec3(0,0,1));
-	glm::mat4 moonOrbit = glm::translate(glm::mat4(1.f), glm::vec3(cos(1.5f * at) * 2.0f, sin(1.5f * at) * 2.0f * 0.5f, sin(1.5f * at) * 2.0f));
-	glm::mat4 moonSpin = glm::rotate(glm::mat4(1.f), (float)(2.f * at), glm::vec3(0,1,0));
-	glm::mat4 moonScale = glm::scale(glm::vec3(0.27f));
-	glm::mat4 earthTransOnly = glm::translate(glm::mat4(1.f), glm::vec3(cos(3.0f * at) * 9.f, 0.f, sin(3.0f * at) * 9.f));
-	m_sphere3->Update(earthTransOnly * moonTilt * moonOrbit * moonSpin * moonScale);
+	//glm::mat4 moonTilt = glm::rotate(glm::mat4(1.f), glm::radians(30.f), glm::vec3(0,0,1));
+	//glm::mat4 moonOrbit = glm::translate(glm::mat4(1.f), glm::vec3(cos(1.5f * at) * 2.0f, sin(1.5f * at) * 2.0f * 0.5f, sin(1.5f * at) * 2.0f));
+	//glm::mat4 moonSpin = glm::rotate(glm::mat4(1.f), (float)(2.f * at), glm::vec3(0,1,0));
+	//glm::mat4 moonScale = glm::scale(glm::vec3(0.13f));
+	//glm::mat4 earthTransOnly = glm::translate(glm::mat4(1.f), glm::vec3(cos(3.0f * at) * 11.f, 0.f, sin(3.0f * at) * 11.f));
+	//m_sphere3->Update(earthTransOnly * moonTilt * moonOrbit * moonSpin * moonScale);
+
+	// Moon around Earth
+	glm::vec3 earthPos = glm::vec3(
+		cos(3.0f * at) * 11.f,
+		0.f,
+		sin(3.0f * at) * 11.f
+	);
+	glm::mat4 earthTransOnly = glm::translate(glm::mat4(1.f), earthPos);
+
+	float moonOrbitRadius = 1.5f;
+	float moonOrbitSpeed = 6.0f;
+	glm::vec3 moonLocalPos = glm::vec3(
+		cos(moonOrbitSpeed * at) * moonOrbitRadius,
+		0.f,
+		sin(moonOrbitSpeed * at) * moonOrbitRadius
+	);
+	glm::mat4 moonOrbitMat = glm::translate(glm::mat4(1.f), moonLocalPos);
+	glm::mat4 moonSpin = glm::rotate(glm::mat4(1.f), (float)(2.f * at), glm::vec3(0, 1, 0));
+	glm::mat4 moonScale = glm::scale(glm::vec3(0.13f));
+
+	m_sphere3->Update(earthTransOnly * moonOrbitMat * moonSpin * moonScale);
 
 	// Mars
-	ComputeTransforms(at, {2.4f,0.f,2.4f}, {12.f,0.f,12.f}, {1.2f}, glm::vec3(0,1,0), {0.3f,0.3f,0.3f}, tmat, rmat, smat);
-	glm::mat4 marsModel = glm::rotate(glm::mat4(1.f), glm::radians(25.f), glm::vec3(0,0,1)) * tmat * rmat * smat;
+	//ComputeTransforms(at, {2.4f,0.f,2.4f}, {12.f,0.f,12.f}, {1.2f}, glm::vec3(0,1,0), {0.3f,0.3f,0.3f}, tmat, rmat, smat);
+	ComputeTransforms(at, { 2.4f,0.f,2.4f }, { 15.f,0.f,15.f }, { 1.0f }, glm::vec3(0, 1, 0), { 0.3f,0.3f,0.3f }, tmat, rmat, smat);
+	glm::mat4 marsModel = tmat *  glm::rotate(glm::mat4(1.f), glm::radians(25.f), glm::vec3(0,0,1)) * rmat * smat;
 	m_mars->Update(marsModel);
 
 	// Jupiter
-	ComputeTransforms(at, {1.3f,0.f,1.3f}, {18.f,0.f,18.f}, {0.8f}, glm::vec3(0,1,0), {1.4f,1.4f,1.4f}, tmat, rmat, smat);
-	glm::mat4 jupModel = glm::rotate(glm::mat4(1.f), glm::radians(3.f), glm::vec3(0,0,1)) * tmat * rmat * smat;
+	//ComputeTransforms(at, {1.3f,0.f,1.3f}, {18.f,0.f,18.f}, {0.8f}, glm::vec3(0,1,0), {1.4f,1.4f,1.4f}, tmat, rmat, smat);
+	ComputeTransforms(at, { 1.3f,0.f,1.3f }, { 21.f,0.f,21.f }, { 0.5f }, glm::vec3(0, 1, 0), { 1.4f,1.4f,1.4f }, tmat, rmat, smat);
+	glm::mat4 jupModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(3.f), glm::vec3(0,0,1)) * rmat * smat;
 	m_jupiter->Update(jupModel);
 
 	// Saturn and ring
@@ -273,12 +301,12 @@ void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 
 	// Uranus
 	ComputeTransforms(at, {0.7f,0.f,0.7f}, {30.f,0.f,30.f}, {0.4f}, glm::vec3(0,1,0), {0.8f,0.8f,0.8f}, tmat, rmat, smat);
-	glm::mat4 urModel = glm::rotate(glm::mat4(1.f), glm::radians(98.f), glm::vec3(0,0,1)) * tmat * rmat * smat;
+	glm::mat4 urModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(98.f), glm::vec3(0,0,1)) * rmat * smat;
 	m_uranus->Update(urModel);
 
 	// Neptune
 	ComputeTransforms(at, {0.5f,0.f,0.5f}, {36.f,0.f,36.f}, {0.3f}, glm::vec3(0,1,0), {0.8f,0.8f,0.8f}, tmat, rmat, smat);
-	glm::mat4 nepModel = glm::rotate(glm::mat4(1.f), glm::radians(28.f), glm::vec3(0,0,1)) * tmat * rmat * smat;
+	glm::mat4 nepModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(28.f), glm::vec3(0,0,1)) * rmat * smat;
 	m_neptune->Update(nepModel);
 
 	// Sky sphere: large scale around origin with slow rotation
@@ -287,19 +315,22 @@ void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 	m_skySphere->Update(skyModel);
 
 	// Update ship from input state
-	UpdateShip((float)dt, m_keyFwd, m_keyBack, m_keyLeft, m_keyRight, m_keyRollL, m_keyRollR, m_mouseDX, m_mouseDY);
+	UpdateShip((float)dt, m_keyFwd, m_keyBack, m_keyLeft, m_keyRight, m_keyRollL, m_keyRollR, m_keyPitchUp, m_keyPitchDown, m_mouseDX, m_mouseDY);
 	// reset mouse delta after applied
 	m_mouseDX = 0.f; m_mouseDY = 0.f;
 }
 
 
-void Graphics::UpdateShip(float dt, bool fwd, bool back, bool left, bool right, bool rollLeft, bool rollRight, float mouseDX, float mouseDY) {
+void Graphics::UpdateShip(float dt, bool fwd, bool back, bool left, bool right, bool rollLeft, bool rollRight, bool pitchUp, bool pitchDown, float mouseDX, float mouseDY) {
 	// 1-2: apply yaw/pitch from mouse
 	m_shipYaw -= mouseDX * 0.1f;
 	m_shipPitch -= mouseDY * 0.1f;
 
 	if (left)  m_shipYaw -= 60.f * dt;
 	if (right) m_shipYaw += 60.f * dt;
+
+	if (pitchUp)   m_shipPitch += 60.f * dt;
+	if (pitchDown) m_shipPitch -= 60.f * dt;
 
 	// 3 roll
 	if (rollLeft) m_shipRoll -= 60.f * dt;

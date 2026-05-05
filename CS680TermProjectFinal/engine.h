@@ -39,6 +39,11 @@ private:
     bool  m_firstMouse = true;
     float m_deltaTime = 0.f;
 
+    // Game mode
+    enum GameMode { EXPLORATION, PLANETARY };
+    GameMode m_gameMode = EXPLORATION;
+    bool m_tabWasPressed = false;  // prevents repeated toggles
+
 
     // Timing
     float m_lastFrame = 0.f;
