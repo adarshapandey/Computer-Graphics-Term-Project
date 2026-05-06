@@ -116,3 +116,70 @@ void Camera::SetThirdPersonSmooth(glm::vec3 shipPos, glm::vec3 shipForward,
     cameraUp = shipUp;
     Update();
 }
+
+// ── Cockpit (first-person) view ───────────────────────────────────────────
+
+void Camera::SetCockpitEntry(glm::vec3 pos, glm::vec3 forward, glm::vec3 up)
+{
+    cameraPos   = pos;
+    cameraFront = glm::normalize(forward);
+    cameraUp    = up;
+
+    // Seed yaw/pitch from the ship's forward so ProcessMouseMovement
+    // continues smoothly from this direction instead of snapping.
+    yaw   = glm::degrees(atan2(forward.z, forward.x));
+    pitch = glm::degrees(asin(glm::clamp(forward.y, -1.f, 1.f)));
+
+    Update();
+}
+
+// ── Orbit camera (Planetary Observation Mode) ─────────────────────────────
+
+void Camera::ApplyOrbit()
+{
+    float az = glm::radians(m_orbitAzimuth);
+    float el = glm::radians(m_orbitElevation);
+    glm::vec3 offset(
+        m_orbitRadius * cos(el) * sin(az),
+        m_orbitRadius * sin(el),
+        m_orbitRadius * cos(el) * cos(az)
+    );
+    cameraPos   = m_orbitTarget + offset;
+    cameraFront = glm::normalize(m_orbitTarget - cameraPos);
+    cameraUp    = glm::vec3(0.f, 1.f, 0.f);
+    Update();
+}
+
+void Camera::ResetOrbit(glm::vec3 target, float radius)
+{
+    m_orbitTarget    = target;
+    m_orbitRadius    = radius;
+    m_orbitAzimuth   = 0.f;
+    m_orbitElevation = 20.f;
+    ApplyOrbit();
+}
+
+void Camera::MoveOrbitTarget(glm::vec3 target)
+{
+    m_orbitTarget = target;
+    ApplyOrbit();
+}
+
+void Camera::UpdateOrbit(float dAzimuth, float dElevation)
+{
+    m_orbitAzimuth   += dAzimuth * 0.3f;
+    m_orbitElevation  = glm::clamp(m_orbitElevation + dElevation * 0.3f, -85.f, 85.f);
+    ApplyOrbit();
+}
+
+void Camera::OrbitZoom(float delta)
+{
+    m_orbitRadius = glm::clamp(m_orbitRadius - delta * 0.5f, 1.f, 100.f);
+    ApplyOrbit();
+}
+
+void Camera::SetOrbitRadius(float r)
+{
+    m_orbitRadius = glm::clamp(r, 1.f, 100.f);
+    ApplyOrbit();
+}

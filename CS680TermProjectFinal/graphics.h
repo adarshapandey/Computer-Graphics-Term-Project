@@ -38,6 +38,14 @@ class Graphics
     void setKeyState(int key, bool pressed);
     void setMouseDelta(float dx, float dy);
 
+    // Planetary Observation mode
+    // Indices: 0=Sun 1=Mercury 2=Venus 3=Earth 4=Moon 5=Mars 6=Jupiter 7=Saturn 8=Uranus 9=Neptune
+    static constexpr int NUM_BODIES = 10;
+    glm::vec3 GetSelectedBodyPos()         { return m_bodyPos[m_selectedBody]; }
+    float     GetSelectedBodyOrbitRadius() { return m_bodyOrbitRadius[m_selectedBody]; }
+    void      CycleBody(int dir)           { m_selectedBody = (m_selectedBody + dir + NUM_BODIES) % NUM_BODIES; }
+    void      SetPlanetaryMode(bool pm)    { m_planetaryMode = pm; }
+
   private:
     std::string ErrorString(GLenum error);
     // Saturn ring raw GL buffers (since Mesh needs .obj file)
@@ -74,6 +82,17 @@ class Graphics
     GLint m_lightColor;
     GLint m_ambientStr;
     GLint m_specStr;
+
+    // Fill light (night-side / planetary observation)
+    GLint m_uFillLightPos;
+    GLint m_uFillLightColor;
+    GLint m_uFillStrength;
+
+    // Celestial body world positions and suggested orbit radii
+    glm::vec3 m_bodyPos[NUM_BODIES]         = {};
+    float     m_bodyOrbitRadius[NUM_BODIES] = {};
+    int       m_selectedBody                = 3; // default: Earth
+    bool      m_planetaryMode               = false;
 
 
     Sphere* m_sphere;

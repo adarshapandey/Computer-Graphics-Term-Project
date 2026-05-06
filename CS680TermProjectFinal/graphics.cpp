@@ -187,8 +187,17 @@ bool Graphics::Initialize(int width, int height)
 
 	createRingMesh(1.4f, 2.4f, 64, "assets\\Saturn_ring.png");
 
-
-
+	// Suggested orbit camera distances for each body (matched to their visual scale)
+	m_bodyOrbitRadius[0] = 8.0f;   // Sun   (scale 3.0)
+	m_bodyOrbitRadius[1] = 0.8f;   // Mercury (scale 0.2)
+	m_bodyOrbitRadius[2] = 1.5f;   // Venus  (scale 0.5)
+	m_bodyOrbitRadius[3] = 1.5f;   // Earth  (scale 0.5)
+	m_bodyOrbitRadius[4] = 0.5f;   // Moon   (scale 0.13)
+	m_bodyOrbitRadius[5] = 1.0f;   // Mars   (scale 0.3)
+	m_bodyOrbitRadius[6] = 4.0f;   // Jupiter (scale 1.4)
+	m_bodyOrbitRadius[7] = 4.0f;   // Saturn  (scale 1.2)
+	m_bodyOrbitRadius[8] = 2.5f;   // Uranus  (scale 0.8)
+	m_bodyOrbitRadius[9] = 2.5f;   // Neptune (scale 0.8)
 
 	//enable depth testing
 	glEnable(GL_DEPTH_TEST);
@@ -212,24 +221,28 @@ void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 		tmat, rmat, smat);
 	glm::mat4 sunModel = rmat * smat;    // no translation = stays at origin
 	m_sphere->Update(sunModel);
+	m_bodyPos[0] = glm::vec3(0.f);     // Sun always at world origin
 
 	// Planets: Mercury
 	//ComputeTransforms(at, {4.7f,0.f,4.7f}, {4.f,0.f,4.f}, {0.5f}, glm::vec3(0,1,0), {0.2f,0.2f,0.2f}, tmat, rmat, smat);
 	ComputeTransforms(at, { 4.7f,0.f,4.7f }, { 5.f,0.f,5.f }, { 2.0f }, glm::vec3(0, 1, 0), { 0.2f,0.2f,0.2f }, tmat, rmat, smat);
 	glm::mat4 mercuryModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(0.03f), glm::vec3(0,0,1)) * rmat * smat;
 	m_mercury->Update(mercuryModel);
+	m_bodyPos[1] = glm::vec3(mercuryModel[3]);
 
 	// Venus
 	//ComputeTransforms(at, {3.5f,0.f,3.5f}, {6.f,0.f,6.f}, {0.3f}, glm::vec3(0,1,0), {0.5f,0.5f,0.5f}, tmat, rmat, smat);
 	ComputeTransforms(at, { 3.5f,0.f,3.5f }, { 8.f,0.f,8.f }, { 1.5f }, glm::vec3(0, 1, 0), { 0.5f,0.5f,0.5f }, tmat, rmat, smat);
 	glm::mat4 venusModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(177.f), glm::vec3(0,0,1)) * rmat * smat;
 	m_venus->Update(venusModel);
+	m_bodyPos[2] = glm::vec3(venusModel[3]);
 
 	// Earth (existing)
 	//ComputeTransforms(at, {3.0f,0.f,3.0f}, {9.f,0.f,9.f}, {1.5f}, glm::vec3(0,1,0), {0.5f,0.5f,0.5f}, tmat, rmat, smat);
 	ComputeTransforms(at, { 3.0f,0.f,3.0f }, { 11.f,0.f,11.f }, { 1.2f }, glm::vec3(0, 1, 0), { 0.5f,0.5f,0.5f }, tmat, rmat, smat);
 	glm::mat4 earthModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(23.4f), glm::vec3(0,0,1)) * rmat * smat;
 	m_sphere2->Update(earthModel);
+	m_bodyPos[3] = glm::vec3(earthModel[3]);
 
 	// Moon around Earth (reuse previous approach)
 	//glm::mat4 moonTilt = glm::rotate(glm::mat4(1.f), glm::radians(30.f), glm::vec3(0,0,1));
@@ -258,19 +271,23 @@ void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 	glm::mat4 moonSpin = glm::rotate(glm::mat4(1.f), (float)(2.f * at), glm::vec3(0, 1, 0));
 	glm::mat4 moonScale = glm::scale(glm::vec3(0.13f));
 
-	m_sphere3->Update(earthTransOnly * moonOrbitMat * moonSpin * moonScale);
+	glm::mat4 moonModel = earthTransOnly * moonOrbitMat * moonSpin * moonScale;
+	m_sphere3->Update(moonModel);
+	m_bodyPos[4] = glm::vec3(moonModel[3]);
 
 	// Mars
 	//ComputeTransforms(at, {2.4f,0.f,2.4f}, {12.f,0.f,12.f}, {1.2f}, glm::vec3(0,1,0), {0.3f,0.3f,0.3f}, tmat, rmat, smat);
 	ComputeTransforms(at, { 2.4f,0.f,2.4f }, { 15.f,0.f,15.f }, { 1.0f }, glm::vec3(0, 1, 0), { 0.3f,0.3f,0.3f }, tmat, rmat, smat);
 	glm::mat4 marsModel = tmat *  glm::rotate(glm::mat4(1.f), glm::radians(25.f), glm::vec3(0,0,1)) * rmat * smat;
 	m_mars->Update(marsModel);
+	m_bodyPos[5] = glm::vec3(marsModel[3]);
 
 	// Jupiter
 	//ComputeTransforms(at, {1.3f,0.f,1.3f}, {18.f,0.f,18.f}, {0.8f}, glm::vec3(0,1,0), {1.4f,1.4f,1.4f}, tmat, rmat, smat);
 	ComputeTransforms(at, { 1.3f,0.f,1.3f }, { 21.f,0.f,21.f }, { 0.5f }, glm::vec3(0, 1, 0), { 1.4f,1.4f,1.4f }, tmat, rmat, smat);
 	glm::mat4 jupModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(3.f), glm::vec3(0,0,1)) * rmat * smat;
 	m_jupiter->Update(jupModel);
+	m_bodyPos[6] = glm::vec3(jupModel[3]);
 
 	// Saturn and ring
 	//ComputeTransforms(at, {0.9f,0.f,0.9f}, {24.f,0.f,24.f}, {0.6f}, glm::vec3(0,1,0), {1.2f,1.2f,1.2f}, tmat, rmat, smat);
@@ -291,7 +308,9 @@ void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 	glm::mat4 saturnBase = tmat * glm::rotate(glm::mat4(1.f), glm::radians(27.f), glm::vec3(0, 0, 1));
 
 	// Planet: base * spin * scale
-	m_saturn->Update(saturnBase * rmat * smat);
+	glm::mat4 satModel = saturnBase * rmat * smat;
+	m_saturn->Update(satModel);
+	m_bodyPos[7] = glm::vec3(satModel[3]);
 
 	// Ring: same base position and tilt, no spin, scale matches sphere radius
 	// Saturn sphere scale is 1.2f, ring inner=1.4 outer=2.4 in local space
@@ -303,11 +322,13 @@ void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 	ComputeTransforms(at, {0.7f,0.f,0.7f}, {30.f,0.f,30.f}, {0.4f}, glm::vec3(0,1,0), {0.8f,0.8f,0.8f}, tmat, rmat, smat);
 	glm::mat4 urModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(98.f), glm::vec3(0,0,1)) * rmat * smat;
 	m_uranus->Update(urModel);
+	m_bodyPos[8] = glm::vec3(urModel[3]);
 
 	// Neptune
 	ComputeTransforms(at, {0.5f,0.f,0.5f}, {36.f,0.f,36.f}, {0.3f}, glm::vec3(0,1,0), {0.8f,0.8f,0.8f}, tmat, rmat, smat);
 	glm::mat4 nepModel = tmat * glm::rotate(glm::mat4(1.f), glm::radians(28.f), glm::vec3(0,0,1)) * rmat * smat;
 	m_neptune->Update(nepModel);
+	m_bodyPos[9] = glm::vec3(nepModel[3]);
 
 	// Sky sphere: large scale around origin with slow rotation
 	glm::mat4 skyModel = glm::scale(glm::mat4(1.f), glm::vec3(150.f));
@@ -582,6 +603,19 @@ void Graphics::Render()
 	glUniform1f(m_ambientStr, 0.15f);
 	glUniform1f(m_specStr, 0.4f);
 
+	// Fill light: active only in Planetary Observation mode.
+	// Positioned at the camera so the observer can illuminate any side.
+	// Warm day light comes from the sun; this cool fill lets you see the night side.
+	if (m_planetaryMode) {
+		glUniform3f(m_uFillLightPos,   camPos.x, camPos.y, camPos.z);
+		glUniform3f(m_uFillLightColor, 0.4f, 0.55f, 0.9f); // cool blue-white
+		glUniform1f(m_uFillStrength,   0.35f);
+	} else {
+		glUniform3f(m_uFillLightColor, 0.f, 0.f, 0.f);
+		glUniform1f(m_uFillStrength,   0.f);
+		glUniform3f(m_uFillLightPos,   0.f, 0.f, 0.f);
+	}
+
 	GLuint sampler = m_shader->GetUniformLocation("sp");
 	glUniform1i(sampler, 0);
 
@@ -720,6 +754,11 @@ bool Graphics::collectShPrLocs() {
 	m_lightColor = m_shader->GetUniformLocation("lightColor");
 	m_ambientStr = m_shader->GetUniformLocation("ambientStrength");
 	m_specStr = m_shader->GetUniformLocation("specularStrength");
+
+	// Fill light uniforms (planetary observation night-side)
+	m_uFillLightPos   = m_shader->GetUniformLocation("fillLightPos");
+	m_uFillLightColor = m_shader->GetUniformLocation("fillLightColor");
+	m_uFillStrength   = m_shader->GetUniformLocation("fillStrength");
 
 	return anyProblem;
 }

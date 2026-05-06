@@ -21,10 +21,27 @@ public:
     void SetThirdPersonSmooth(glm::vec3 shipPos, glm::vec3 shipForward,
         glm::vec3 shipUp, float dt);
 
+    // Cockpit (first-person) view — position at ship front, look along ship forward
+    void SetCockpitEntry(glm::vec3 pos, glm::vec3 forward, glm::vec3 up);
+
+    // Orbit camera (Planetary Observation mode)
+    void ResetOrbit(glm::vec3 target, float radius);   // first-time setup, resets angles
+    void MoveOrbitTarget(glm::vec3 target);            // track moving planet each frame
+    void UpdateOrbit(float dAzimuth, float dElevation);// mouse-driven rotation
+    void OrbitZoom(float delta);                       // scroll-driven zoom
+    void SetOrbitRadius(float r);                      // set radius directly (on planet cycle)
+
     // Directions
     enum MoveDir { FORWARD, BACKWARD, LEFT, RIGHT };
 
 private:
+    // Orbit camera state
+    glm::vec3 m_orbitTarget    = glm::vec3(0.f);
+    float     m_orbitRadius    = 5.f;
+    float     m_orbitAzimuth   = 0.f;
+    float     m_orbitElevation = 20.f;
+
+    void ApplyOrbit();
     // Camera position/orientation
     glm::vec3 cameraPos = glm::vec3(0.f, 5.f, -20.f);
     glm::vec3 cameraFront = glm::vec3(0.f, 0.f, 1.f);  // points toward origin
