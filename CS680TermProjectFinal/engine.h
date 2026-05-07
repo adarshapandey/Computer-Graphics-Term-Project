@@ -49,6 +49,7 @@ private:
     bool m_tabWasPressed = false;  // prevents repeated toggles
     bool m_nWasPressed   = false;  // N = next body
     bool m_bWasPressed   = false;  // B = previous body
+    bool m_rWasPressed   = false;  // R = reset orbit view
     bool m_vWasPressed        = false;  // V = toggle cockpit view
     bool m_orbitInitialized   = false;  // first-entry orbit reset flag
     bool m_cockpitInitialized = false;  // first-entry cockpit snap flag

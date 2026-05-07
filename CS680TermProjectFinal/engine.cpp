@@ -1,3 +1,8 @@
+// engine.cpp
+// Top-level game loop: owns the window, graphics subsystem, and input processing.
+// Three game modes — Exploration (ship flight), Planetary (orbit camera), Cockpit
+// (first-person from ship nose) — are toggled with TAB and V.
+
 #include "engine.h"
 
 // Static instance pointer so GLFW callbacks can reach the camera
@@ -132,6 +137,8 @@ void Engine::ProcessInput(float deltaTime)
         // Ship flight controls — active only in Exploration mode
         m_graphics->setKeyState(Graphics::FWD,        glfwGetKey(win, GLFW_KEY_W)    == GLFW_PRESS);
         m_graphics->setKeyState(Graphics::BACK,       glfwGetKey(win, GLFW_KEY_S)    == GLFW_PRESS);
+        m_graphics->setKeyState(Graphics::LEFT,       glfwGetKey(win, GLFW_KEY_A)    == GLFW_PRESS);
+        m_graphics->setKeyState(Graphics::RIGHT,      glfwGetKey(win, GLFW_KEY_D)    == GLFW_PRESS);
         m_graphics->setKeyState(Graphics::ROLL_L,     glfwGetKey(win, GLFW_KEY_Q)    == GLFW_PRESS);
         m_graphics->setKeyState(Graphics::ROLL_R,     glfwGetKey(win, GLFW_KEY_E)    == GLFW_PRESS);
         m_graphics->setKeyState(Graphics::PITCH_UP,   glfwGetKey(win, GLFW_KEY_UP)   == GLFW_PRESS);
@@ -156,6 +163,16 @@ void Engine::ProcessInput(float deltaTime)
                 m_graphics->getCamera()->SetOrbitRadius(m_graphics->GetSelectedBodyOrbitRadius());
             }
             m_bWasPressed = bNow;
+
+            // R = reset orbit view (restore default azimuth/elevation)
+            bool rNow = glfwGetKey(win, GLFW_KEY_R) == GLFW_PRESS;
+            if (rNow && !m_rWasPressed) {
+                m_graphics->getCamera()->ResetOrbit(
+                    m_graphics->GetSelectedBodyPos(),
+                    m_graphics->GetSelectedBodyOrbitRadius()
+                );
+            }
+            m_rWasPressed = rNow;
         }
     }
 

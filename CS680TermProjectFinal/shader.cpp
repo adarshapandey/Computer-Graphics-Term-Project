@@ -1,3 +1,8 @@
+// shader.cpp
+// Compiles and links the GLSL vertex and fragment shaders.
+// The fragment shader implements Phong lighting with a sun point-light, an optional
+// fill light for Planetary Observation mode, and an emissive term for engine glow.
+
 #include "shader.h"
 
 Shader::Shader()
@@ -45,6 +50,7 @@ bool Shader::AddShader(GLenum ShaderType)
           "layout (location = 2) in vec2 v_tc;\n"
           "out vec3 v_normal;\n"
           "out vec3 v_fragPos;\n"
+          "out vec3 v_localPos;\n"
           "out vec3 color;\n"
           "out vec2 tc;\n"
           "uniform mat4 projectionMatrix;\n"
@@ -56,6 +62,7 @@ bool Shader::AddShader(GLenum ShaderType)
           "  gl_Position = (projectionMatrix * viewMatrix * modelMatrix) * v;\n"
           "  v_normal  = mat3(transpose(inverse(modelMatrix))) * v_color;\n"
           "  v_fragPos = vec3(modelMatrix * v);\n"
+          "  v_localPos = v_position;\n"
           "  color = v_color;\n"
           "  tc = v_tc;\n"
           "}\n";
@@ -73,8 +80,13 @@ bool Shader::AddShader(GLenum ShaderType)
           "uniform vec3 fillLightPos;\n"
           "uniform vec3 fillLightColor;\n"
           "uniform float fillStrength;\n"
+          "uniform vec3  emissiveColor;\n"
+          "uniform float emissiveStrength;\n"
+          "uniform vec3  emissiveMaskMin;\n"  // model-space lower corner of mask
+          "uniform vec3  emissiveMaskMax;\n"  // model-space upper corner of mask
           "in vec3 v_normal;\n"
           "in vec3 v_fragPos;\n"
+          "in vec3 v_localPos;\n"
           "in vec3 color;\n"
           "in vec2 tc;\n"
           "out vec4 frag_color;\n"
@@ -93,7 +105,16 @@ bool Shader::AddShader(GLenum ShaderType)
           "  vec3 fillDir  = normalize(fillLightPos - v_fragPos);\n"
           "  float fillDif = max(dot(norm, fillDir), 0.0);\n"
           "  vec3 fillContr = fillStrength * fillDif * fillLightColor * texColor;\n"
-          "  frag_color = vec4(ambient + diffuse + specular + fillContr, 1.0);\n"
+          // Emissive mask: 1.0 only inside the model-space box [min, max].
+          // Smooth falloff over a small inset so the glow blends naturally.
+          // Set min == max to disable emissive entirely (default for non-ship draws).
+          "  vec3 boxSize = max(emissiveMaskMax - emissiveMaskMin, vec3(0.0001));\n"
+          "  vec3 inset   = boxSize * 0.15;\n"
+          "  vec3 lo = smoothstep(emissiveMaskMin, emissiveMaskMin + inset, v_localPos);\n"
+          "  vec3 hi = smoothstep(emissiveMaskMax, emissiveMaskMax - inset, v_localPos);\n"
+          "  float mask = lo.x*lo.y*lo.z * hi.x*hi.y*hi.z;\n"
+          "  vec3 emissive = emissiveStrength * emissiveColor * mask;\n"
+          "  frag_color = vec4(ambient + diffuse + specular + fillContr + emissive, 1.0);\n"
           "}\n";
   }
 

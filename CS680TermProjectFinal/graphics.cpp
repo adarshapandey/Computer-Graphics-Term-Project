@@ -1,3 +1,7 @@
+// graphics.cpp
+// Manages the OpenGL scene: shader setup, solar system transforms, ship physics,
+// and the full render pipeline including lighting and special effects.
+
 #include "graphics.h"
 
 Graphics::Graphics()
@@ -7,13 +11,13 @@ Graphics::Graphics()
 
 void Graphics::setKeyState(int key, bool pressed) {
 	switch(key) {
-        case Graphics::FWD: m_keyFwd = pressed; break;
-		case Graphics::BACK: m_keyBack = pressed; break;
-		case Graphics::LEFT: m_keyLeft = pressed; break;
-		case Graphics::RIGHT: m_keyRight = pressed; break;
-		case Graphics::ROLL_L: m_keyRollL = pressed; break;
-		case Graphics::ROLL_R: m_keyRollR = pressed; break;
-		case Graphics::PITCH_UP:   m_keyPitchUp = pressed; break;
+        case Graphics::FWD:        m_keyFwd       = pressed; break;
+		case Graphics::BACK:       m_keyBack      = pressed; break;
+		case Graphics::LEFT:       m_keyLeft      = pressed; break;
+		case Graphics::RIGHT:      m_keyRight     = pressed; break;
+		case Graphics::ROLL_L:     m_keyRollL     = pressed; break;
+		case Graphics::ROLL_R:     m_keyRollR     = pressed; break;
+		case Graphics::PITCH_UP:   m_keyPitchUp   = pressed; break;
 		case Graphics::PITCH_DOWN: m_keyPitchDown = pressed; break;
 	}
 }
@@ -91,6 +95,7 @@ Graphics::~Graphics()
 
 }
 
+// Initialize: sets up GLEW, camera, shader program, all scene objects, and GL state.
 bool Graphics::Initialize(int width, int height)
 {
 	// Used for the linux OS
@@ -187,6 +192,7 @@ bool Graphics::Initialize(int width, int height)
 
 	createRingMesh(1.4f, 2.4f, 64, "assets\\Saturn_ring.png");
 
+
 	// Suggested orbit camera distances for each body (matched to their visual scale)
 	m_bodyOrbitRadius[0] = 8.0f;   // Sun   (scale 3.0)
 	m_bodyOrbitRadius[1] = 0.8f;   // Mercury (scale 0.2)
@@ -206,6 +212,8 @@ bool Graphics::Initialize(int width, int height)
 	return true;
 }
 
+// HierarchicalUpdate2: advances every solar-system body, the ship, and engine glow orbs.
+// absoluteTime drives orbital positions; dt is the per-frame step for ship physics.
 void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 	glm::mat4 tmat, rmat, smat;
 
@@ -342,6 +350,8 @@ void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 }
 
 
+// UpdateShip: integrates ship rotation (yaw/pitch/roll) and speed from keyboard/mouse,
+// then rebuilds the orientation basis vectors and model matrix each frame.
 void Graphics::UpdateShip(float dt, bool fwd, bool back, bool left, bool right, bool rollLeft, bool rollRight, bool pitchUp, bool pitchDown, float mouseDX, float mouseDY) {
 	// 1-2: apply yaw/pitch from mouse
 	m_shipYaw -= mouseDX * 0.1f;
@@ -387,7 +397,7 @@ void Graphics::UpdateShip(float dt, bool fwd, bool back, bool left, bool right, 
 	}
 
 	// 8 speed control
-	if (fwd) m_shipSpeed = std::min(m_shipSpeed + m_shipAccel * dt, m_shipMaxSpeed);
+	if (fwd)  m_shipSpeed = std::min(m_shipSpeed + m_shipAccel * dt, m_shipMaxSpeed);
 	if (back) m_shipSpeed = std::max(m_shipSpeed - m_shipAccel * dt * 3.f, 0.f);
 	if (!fwd && !back) m_shipSpeed = std::max(m_shipSpeed - m_shipAccel * 0.5f * dt, 0.f);
 
@@ -407,7 +417,9 @@ void Graphics::UpdateShip(float dt, bool fwd, bool back, bool left, bool right, 
 	}
 
 
-void Graphics::ComputeTransforms(double dt, std::vector<float> speed, std::vector<float> dist, 
+// ComputeTransforms: builds T/R/S matrices for a planet.
+// speed/dist drive the orbit translation; rotSpeed/rotVector drive self-spin; scale sets size.
+void Graphics::ComputeTransforms(double dt, std::vector<float> speed, std::vector<float> dist,
 	std::vector<float> rotSpeed, glm::vec3 rotVector, std::vector<float> scale, glm::mat4& tmat, glm::mat4& rmat, glm::mat4& smat) {
 	tmat = glm::translate(glm::mat4(1.f),
 		glm::vec3(cos(speed[0] * dt) * dist[0], sin(speed[1] * dt) * dist[1], sin(speed[2] * dt) * dist[2])
@@ -580,6 +592,8 @@ void Graphics::RenderRing()
 //	}
 //}
 
+// Render: clears the frame, uploads per-frame uniforms, and draws every scene object
+// in order: sky sphere → sun → planets → Saturn ring → starship → engine glow orbs.
 void Graphics::Render()
 {
 	glClearColor(0.0f, 0.0f, 0.05f, 1.0f); // dark space color
@@ -618,6 +632,13 @@ void Graphics::Render()
 
 	GLuint sampler = m_shader->GetUniformLocation("sp");
 	glUniform1i(sampler, 0);
+
+	// Default emissive off — only the ship thruster overrides this.
+	// Mask collapsed to a zero-volume box → mask=0 everywhere for non-ship draws.
+	glUniform1f(m_uEmissiveStrength, 0.f);
+	glUniform3f(m_uEmissiveColor, 0.f, 0.f, 0.f);
+	glUniform3f(m_uEmissiveMaskMin, 0.f, 0.f, 0.f);
+	glUniform3f(m_uEmissiveMaskMax, 0.f, 0.f, 0.f);
 
 	// ── SKY SPHERE (render first, no depth write) ─────────────────────
 	if (m_skySphere != NULL) {
@@ -675,8 +696,31 @@ void Graphics::Render()
 	RenderRing();
 
 	// ── STARSHIP ──────────────────────────────────────────────────────
+	// Extra-credit emissive: only the 6 back-burner cylinders glow, and
+	// the brightness scales with ship speed. The fragment shader masks the
+	// emissive term to a model-space box at the bottom-rear of the mesh.
+	// SpaceShip-1.obj bounds: x=±25.2, y=-4.4..8.3, z=-29.6..36.2.
+	// Cylinders sit roughly at y < -2 and z < -15.
 	if (m_mesh != NULL && m_mesh->hasTex) {
-		glUniform1f(m_ambientStr, 0.4f); // ship slightly brighter
+		glUniform1f(m_ambientStr, 0.4f);
+
+		float speedRatio = (m_shipMaxSpeed > 0.f)
+			? (m_shipSpeed / m_shipMaxSpeed) : 0.f;
+
+		// Colour ramps deep red → orange → yellow-white as speed builds
+		float r = 1.0f;
+		float g = 0.10f + speedRatio * 0.75f;
+		float b = speedRatio * speedRatio * 0.40f;
+		// Strength: 0 at idle (cylinders look dark) → 2.0 at max speed
+		float strength = speedRatio * 2.0f;
+
+		glUniform3f(m_uEmissiveColor,    r, g, b);
+		glUniform1f(m_uEmissiveStrength, strength);
+
+		// Mask the emissive to the back-burner region (model-space box)
+		glUniform3f(m_uEmissiveMaskMin, -25.0f, -5.0f, -30.0f);
+		glUniform3f(m_uEmissiveMaskMax,  25.0f, -1.5f, -15.0f);
+
 		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE,
 			glm::value_ptr(m_mesh->GetModel()));
 		glActiveTexture(GL_TEXTURE0);
@@ -684,8 +728,15 @@ void Graphics::Render()
 		glUniform1i(sampler, 0);
 		m_mesh->Render(m_positionAttrib, m_colorAttrib,
 			m_tcAttrib, m_hasTexture);
-		glUniform1f(m_ambientStr, 0.15f);
+
+		// Restore: clear emissive + collapse mask box for any later draws
+		glUniform1f(m_ambientStr,        0.15f);
+		glUniform1f(m_uEmissiveStrength, 0.f);
+		glUniform3f(m_uEmissiveColor,    0.f, 0.f, 0.f);
+		glUniform3f(m_uEmissiveMaskMin,  0.f, 0.f, 0.f);
+		glUniform3f(m_uEmissiveMaskMax,  0.f, 0.f, 0.f);
 	}
+
 
 	auto error = glGetError();
 	if (error != GL_NO_ERROR)
@@ -759,6 +810,12 @@ bool Graphics::collectShPrLocs() {
 	m_uFillLightPos   = m_shader->GetUniformLocation("fillLightPos");
 	m_uFillLightColor = m_shader->GetUniformLocation("fillLightColor");
 	m_uFillStrength   = m_shader->GetUniformLocation("fillStrength");
+
+	// Emissive thruster uniforms
+	m_uEmissiveColor    = m_shader->GetUniformLocation("emissiveColor");
+	m_uEmissiveStrength = m_shader->GetUniformLocation("emissiveStrength");
+	m_uEmissiveMaskMin  = m_shader->GetUniformLocation("emissiveMaskMin");
+	m_uEmissiveMaskMax  = m_shader->GetUniformLocation("emissiveMaskMax");
 
 	return anyProblem;
 }

@@ -34,7 +34,7 @@ class Graphics
     glm::vec3 getShipRight()    { return m_shipRight; }
 
     // Input
-    enum ShipKey { FWD, BACK, LEFT, RIGHT, ROLL_L, ROLL_R, PITCH_UP, PITCH_DOWN};
+    enum ShipKey { FWD, BACK, LEFT, RIGHT, ROLL_L, ROLL_R, PITCH_UP, PITCH_DOWN };
     void setKeyState(int key, bool pressed);
     void setMouseDelta(float dx, float dy);
 
@@ -88,6 +88,12 @@ class Graphics
     GLint m_uFillLightColor;
     GLint m_uFillStrength;
 
+    // Emissive thruster glow (speed-driven)
+    GLint m_uEmissiveColor;
+    GLint m_uEmissiveStrength;
+    GLint m_uEmissiveMaskMin;   // model-space box lower corner
+    GLint m_uEmissiveMaskMax;   // model-space box upper corner
+
     // Celestial body world positions and suggested orbit radii
     glm::vec3 m_bodyPos[NUM_BODIES]         = {};
     float     m_bodyOrbitRadius[NUM_BODIES] = {};
@@ -115,6 +121,8 @@ class Graphics
     Mesh* m_saturnRing;
 
     Mesh* m_mesh;
+
+
 
     // Starship state
     glm::vec3 m_shipPosition  = glm::vec3(0.f, 0.f, -15.f);
