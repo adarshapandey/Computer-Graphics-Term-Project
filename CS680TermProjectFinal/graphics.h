@@ -18,7 +18,7 @@ using namespace std;
 
 class Graphics
 {
-  public:
+public:
     Graphics();
     ~Graphics();
     bool Initialize(int width, int height);
@@ -29,17 +29,27 @@ class Graphics
     Camera* getCamera() { return m_camera; }
     // Ship getters for third-person camera
     glm::vec3 getShipPosition() { return m_shipPosition; }
-    glm::vec3 getShipForward()  { return m_shipForward; }
-    glm::vec3 getShipUp()       { return m_shipUp; }
-    glm::vec3 getShipRight()    { return m_shipRight; }
+    glm::vec3 getShipForward() { return m_shipForward; }
+    glm::vec3 getShipUp() { return m_shipUp; }
+    glm::vec3 getShipRight() { return m_shipRight; }
 
     // Input
-    enum ShipKey { FWD, BACK, LEFT, RIGHT, ROLL_L, ROLL_R, PITCH_UP, PITCH_DOWN};
+    enum ShipKey { FWD, BACK, LEFT, RIGHT, ROLL_L, ROLL_R, PITCH_UP, PITCH_DOWN };
     void setKeyState(int key, bool pressed);
     void setMouseDelta(float dx, float dy);
 
-  private:
+    // Planetary Observation mode
+	// Indices: 0=Sun 1=Mercury 2=Venus 3=Earth 4=Moon 5=Mars 6=Jupiter 7=Saturn 8=Uranus
+    // 9= Neptune 10=comet 11=inner belt 12=outer belt 13=Pluto 14=Haumea 15=Eris 16=Ceres
+    static constexpr int NUM_BODIES = 17;
+    glm::vec3 GetSelectedBodyPos() { return m_bodyPos[m_selectedBody]; }
+    float     GetSelectedBodyOrbitRadius() { return m_bodyOrbitRadius[m_selectedBody]; }
+    void      CycleBody(int dir) { m_selectedBody = (m_selectedBody + dir + NUM_BODIES) % NUM_BODIES; }
+    void      SetPlanetaryMode(bool pm) { m_planetaryMode = pm; }
+
+private:
     std::string ErrorString(GLenum error);
+
     // Saturn ring raw GL buffers (since Mesh needs .obj file)
     std::vector<Vertex>       m_ringVertices;
     std::vector<unsigned int> m_ringIndices;
@@ -51,14 +61,14 @@ class Graphics
     void RenderRing();
 
     bool collectShPrLocs();
-    void ComputeTransforms (double dt, std::vector<float> speed, std::vector<float> dist,
-        std::vector<float> rotSpeed, glm::vec3 rotVector, std::vector<float> scale, 
+    void ComputeTransforms(double dt, std::vector<float> speed, std::vector<float> dist,
+        std::vector<float> rotSpeed, glm::vec3 rotVector, std::vector<float> scale,
         glm::mat4& tmat, glm::mat4& rmat, glm::mat4& smat);
 
     stack<glm::mat4> modelStack;
 
-    Camera *m_camera;
-    Shader *m_shader;
+    Camera* m_camera;
+    Shader* m_shader;
 
     GLint m_projectionMatrix;
     GLint m_viewMatrix;
@@ -75,25 +85,47 @@ class Graphics
     GLint m_ambientStr;
     GLint m_specStr;
     GLint m_shininess;
-    GLint m_specColor; 
+    GLint m_specColor;
 
-    // Normal map uniform locations (NEW)
+    // Normal map uniform locations
     GLint m_hasNormalMap;
     GLint m_normalMapSampler;
 
-    // Normal map textures — only for planets that have them (NEW)
+    // Fill light (night-side / planetary observation)
+    GLint m_uFillLightPos;
+    GLint m_uFillLightColor;
+    GLint m_uFillStrength;
+
+    // Emissive thruster glow (speed-driven)
+    GLint m_uEmissiveColor;
+    GLint m_uEmissiveStrength;
+    GLint m_uEmissiveMaskMin;   // model-space box lower corner
+    GLint m_uEmissiveMaskMax;   // model-space box upper corner
+
+    // Celestial body world positions and suggested orbit radii
+    glm::vec3 m_bodyPos[NUM_BODIES] = {};
+    float     m_bodyOrbitRadius[NUM_BODIES] = {};
+    int       m_selectedBody = 3; // default: Earth
+    bool      m_planetaryMode = false;
+
+    // Normal map textures — only for planets that have them
     Texture* m_mercuryNormal = nullptr;
     Texture* m_venusNormal = nullptr;
     Texture* m_earthNormal = nullptr;
     Texture* m_moonNormal = nullptr;
     Texture* m_marsNormal = nullptr;
     Texture* m_jupiterNormal = nullptr;
+    Texture* m_saturnNormal = nullptr;
     Texture* m_uranusNormal = nullptr;
     Texture* m_neptuneNormal = nullptr;
+    Texture* m_plutoNormal = nullptr;
+    Texture* m_haumeaNormal = nullptr;
+    Texture* m_erisNormal = nullptr;
+    Texture* m_ceresNormal = nullptr;
 
-    Sphere* m_sphere;
-    Sphere* m_sphere2;
-    Sphere* m_sphere3;
+    Sphere* m_sphere;   // Sun
+    Sphere* m_sphere2;  // Earth
+    Sphere* m_sphere3;  // Moon
 
     // Solar system bodies
     Sphere* m_mercury;
@@ -104,16 +136,21 @@ class Graphics
     Sphere* m_uranus;
     Sphere* m_neptune;
 
+    // Dwarf Planets
+    Sphere* m_pluto;
+    Sphere* m_haumea;
+    Sphere* m_eris;
+    Sphere* m_ceres;
+
     // Comet
     Sphere* m_comet = nullptr;
-	Sphere* m_cometTail = nullptr;
+    Sphere* m_cometTail = nullptr;
     Texture* m_cometNormal = nullptr;
     glm::mat4 m_cometTailModel = glm::mat4(1.f);
 
-
     // Asteroid belt instancing
-    Sphere* m_asteroid = nullptr;         // single mesh, instanced many times
-    Texture* m_asteroidNormal = nullptr;  // optional
+    Sphere* m_asteroid = nullptr;  // single mesh, instanced many times
+    Texture* m_asteroidNormal = nullptr;  // optional normal map
 
     // Per-instance data stored CPU-side
     struct AsteroidInstance {
@@ -127,25 +164,26 @@ class Graphics
 
     std::vector<AsteroidInstance> m_innerBelt;  // between Mars and Jupiter (~15-21)
     std::vector<AsteroidInstance> m_outerBelt;  // beyond Neptune (~38-50)
+
     // Sky sphere
     Sphere* m_skySphere;
 
-    // Saturn ring mesh
+    // Saturn ring mesh placeholder (procedural ring uses raw VAO above)
     Mesh* m_saturnRing;
 
-    Mesh* m_mesh;
+    Mesh* m_mesh;  // Starship
 
     // Starship state
-    glm::vec3 m_shipPosition  = glm::vec3(0.f, 0.f, -15.f);
-    glm::vec3 m_shipForward   = glm::vec3(0.f, 0.f,  1.f);
-    glm::vec3 m_shipUp        = glm::vec3(0.f, 1.f,  0.f);
-    glm::vec3 m_shipRight     = glm::vec3(1.f, 0.f,  0.f);
-    float m_shipYaw           = 0.f;
-    float m_shipPitch         = 0.f;
-    float m_shipRoll          = 0.f;
-    float m_shipSpeed         = 0.f;
-    float m_shipMaxSpeed      = 20.f;
-    float m_shipAccel         = 5.f;
+    glm::vec3 m_shipPosition = glm::vec3(0.f, 0.f, -15.f);
+    glm::vec3 m_shipForward = glm::vec3(0.f, 0.f, 1.f);
+    glm::vec3 m_shipUp = glm::vec3(0.f, 1.f, 0.f);
+    glm::vec3 m_shipRight = glm::vec3(1.f, 0.f, 0.f);
+    float m_shipYaw = 0.f;
+    float m_shipPitch = 0.f;
+    float m_shipRoll = 0.f;
+    float m_shipSpeed = 0.f;
+    float m_shipMaxSpeed = 20.f;
+    float m_shipAccel = 5.f;
 
     // Input state
     bool m_keyFwd = false, m_keyBack = false, m_keyLeft = false, m_keyRight = false,
@@ -153,10 +191,9 @@ class Graphics
         m_keyPitchUp = false, m_keyPitchDown = false;
     float m_mouseDX = 0.f, m_mouseDY = 0.f;
 
-    void UpdateShip(float dt, bool fwd, bool back, bool left, bool right, bool rollLeft, bool rollRight, bool pitchUp, bool pitchDown, float mouseDX, float mouseDY);
-
-
-
+    void UpdateShip(float dt, bool fwd, bool back, bool left, bool right,
+        bool rollLeft, bool rollRight, bool pitchUp, bool pitchDown,
+        float mouseDX, float mouseDY);
 };
 
 #endif /* GRAPHICS_H */

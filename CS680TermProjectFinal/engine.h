@@ -39,10 +39,20 @@ private:
     bool  m_firstMouse = true;
     float m_deltaTime = 0.f;
 
+    // Accumulated mouse delta — routed to ship or orbit camera depending on mode
+    float m_pendingMouseDX = 0.f;
+    float m_pendingMouseDY = 0.f;
+
     // Game mode
-    enum GameMode { EXPLORATION, PLANETARY };
+    enum GameMode { EXPLORATION, PLANETARY, COCKPIT };
     GameMode m_gameMode = EXPLORATION;
     bool m_tabWasPressed = false;  // prevents repeated toggles
+    bool m_nWasPressed   = false;  // N = next body
+    bool m_bWasPressed   = false;  // B = previous body
+    bool m_rWasPressed   = false;  // R = reset orbit view
+    bool m_vWasPressed        = false;  // V = toggle cockpit view
+    bool m_orbitInitialized   = false;  // first-entry orbit reset flag
+    bool m_cockpitInitialized = false;  // first-entry cockpit snap flag
 
 
     // Timing
