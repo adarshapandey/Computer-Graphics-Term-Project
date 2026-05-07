@@ -74,7 +74,22 @@ class Graphics
     GLint m_lightColor;
     GLint m_ambientStr;
     GLint m_specStr;
+    GLint m_shininess;
+    GLint m_specColor; 
 
+    // Normal map uniform locations (NEW)
+    GLint m_hasNormalMap;
+    GLint m_normalMapSampler;
+
+    // Normal map textures — only for planets that have them (NEW)
+    Texture* m_mercuryNormal = nullptr;
+    Texture* m_venusNormal = nullptr;
+    Texture* m_earthNormal = nullptr;
+    Texture* m_moonNormal = nullptr;
+    Texture* m_marsNormal = nullptr;
+    Texture* m_jupiterNormal = nullptr;
+    Texture* m_uranusNormal = nullptr;
+    Texture* m_neptuneNormal = nullptr;
 
     Sphere* m_sphere;
     Sphere* m_sphere2;
@@ -89,6 +104,29 @@ class Graphics
     Sphere* m_uranus;
     Sphere* m_neptune;
 
+    // Comet
+    Sphere* m_comet = nullptr;
+	Sphere* m_cometTail = nullptr;
+    Texture* m_cometNormal = nullptr;
+    glm::mat4 m_cometTailModel = glm::mat4(1.f);
+
+
+    // Asteroid belt instancing
+    Sphere* m_asteroid = nullptr;         // single mesh, instanced many times
+    Texture* m_asteroidNormal = nullptr;  // optional
+
+    // Per-instance data stored CPU-side
+    struct AsteroidInstance {
+        glm::mat4 model;
+        float orbitRadius;
+        float orbitSpeed;
+        float orbitAngle;   // starting angle offset
+        float orbitHeight;  // slight y variation
+        float scale;
+    };
+
+    std::vector<AsteroidInstance> m_innerBelt;  // between Mars and Jupiter (~15-21)
+    std::vector<AsteroidInstance> m_outerBelt;  // beyond Neptune (~38-50)
     // Sky sphere
     Sphere* m_skySphere;
 

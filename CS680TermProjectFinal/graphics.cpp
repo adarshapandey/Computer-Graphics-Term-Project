@@ -177,18 +177,62 @@ bool Graphics::Initialize(int width, int height)
 	m_uranus  = new Sphere(48, "assets\\Uranus.jpg");
 	m_neptune = new Sphere(48, "assets\\Neptune.jpg");
 
+	//comet
+	// Halley's Comet — low precision sphere for lumpy look
+	m_comet = new Sphere(16, "assets\\HalleysComet.jpg");
+	m_cometTail = new Sphere(16, "assets\\2k_sun.jpg"); 
+
+	// Asteroid belt — single mesh for instancing, low precision for variety
+	m_asteroid = new Sphere(8, "assets\\asteroid.jpg");
+	m_asteroidNormal = new Texture("assets\\asteroid-n.png");
+
+
+	// Seed random for reproducible belt layout
+	srand(42);
+	auto randF = [](float lo, float hi) {
+		return lo + (hi - lo) * (rand() / (float)RAND_MAX);
+		};
+
+	// Inner belt: between Mars (15) and Jupiter (21)
+	for (int i = 0; i < 300; i++) {
+		AsteroidInstance inst;
+		inst.orbitRadius = randF(16.f, 18.f);
+		inst.orbitSpeed = randF(0.3f, 0.7f);
+		inst.orbitAngle = randF(0.f, glm::two_pi<float>());
+		inst.orbitHeight = randF(-0.5f, 0.5f);
+		inst.scale = randF(0.04f, 0.12f);
+		inst.model = glm::mat4(1.f);
+		m_innerBelt.push_back(inst);
+	}
+
+	// Outer belt: beyond Neptune (36)
+	for (int i = 0; i < 500; i++) {
+		AsteroidInstance inst;
+		inst.orbitRadius = randF(38.f, 50.f);
+		inst.orbitSpeed = randF(0.05f, 0.15f);
+		inst.orbitAngle = randF(0.f, glm::two_pi<float>());
+		inst.orbitHeight = randF(-1.5f, 1.5f);
+		inst.scale = randF(0.05f, 0.15f);
+		inst.model = glm::mat4(1.f);
+		m_outerBelt.push_back(inst);
+	}
+
 	// Sky sphere
 	m_skySphere = new Sphere(64, "assets\\Galaxy.jpg");
 
-	// Saturn ring - simple quad mesh could be reused from Mesh loader with texture, here create thin disk via Mesh using existing ship as placeholder if needed
-	//m_saturnRing = new Mesh();
-	//m_saturnRing = new Mesh(glm::vec3(0.f, 0.f, 0.f),
-	//	"assets\\Saturn_ring.png");  // we'll use a disk geometry
-
+	// Saturn ring (procedural mesh + texture)
 	createRingMesh(1.4f, 2.4f, 64, "assets\\Saturn_ring.png");
 
 
-
+	// Normal maps (only for planets that have them)
+	m_mercuryNormal = new Texture("assets\\Mercury-n.jpg");
+	m_venusNormal = new Texture("assets\\Venus-n.jpg");
+	m_earthNormal = new Texture("assets\\2k_earth_daymap-n.jpg");    
+	m_moonNormal = new Texture("assets\\2k_moon-n.jpg");
+	m_marsNormal = new Texture("assets\\Mars-n.jpg");
+	m_jupiterNormal = new Texture("assets\\Jupiter-n.jpg");
+	m_uranusNormal = new Texture("assets\\Uranus-n.jpg");
+	m_neptuneNormal = new Texture("assets\\Neptune-n.jpg");
 
 	//enable depth testing
 	glEnable(GL_DEPTH_TEST);
@@ -314,6 +358,107 @@ void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 	skyModel = glm::rotate(skyModel, (float)(0.002 * dt), glm::vec3(0,1,0));
 	m_skySphere->Update(skyModel);
 
+	// Halley's Comet — highly elliptical orbit
+	// Real Halley's: perihelion ~0.6 AU, aphelion ~35 AU
+	// We simulate with a stretched ellipse: close pass near sun, long tail out past Neptune
+	// ── HALLEY'S COMET ────────────────────────────────────────────────────────
+	float cometSpeed = 0.08f;
+	float cometA = 40.f;   // semi-major axis (long, like real Halley's)
+	float cometB = 8.f;    // semi-minor axis
+	float cometAngle = (float)(cometSpeed * at);
+
+	// Elliptical orbit: x along major axis, z along minor, slight y wobble
+	glm::vec3 cometPos = glm::vec3(
+		cos(cometAngle) * cometA,
+		sin(cometAngle) * 3.f,
+		sin(cometAngle) * cometB
+	);
+
+	// ── NUCLEUS ───────────────────────────────────────────────────────────────
+	glm::mat4 nucleusModel =
+		glm::translate(glm::mat4(1.f), cometPos)
+		* glm::rotate(glm::mat4(1.f), (float)(2.f * at), glm::vec3(0.3f, 1.f, 0.1f))
+		* glm::scale(glm::mat4(1.f), glm::vec3(0.25f));
+	m_comet->Update(nucleusModel);
+
+	// ── TAIL ──────────────────────────────────────────────────────────────────
+	// Tail always points AWAY from sun (away from origin)
+	glm::vec3 awayFromSun = glm::normalize(cometPos); // direction tail streams
+
+	// Build an orthonormal basis with awayFromSun as the Z axis
+	// so the sphere gets stretched along that axis
+	glm::vec3 tempUp = glm::vec3(0.f, 1.f, 0.f);
+	if (glm::abs(glm::dot(awayFromSun, tempUp)) > 0.99f)
+		tempUp = glm::vec3(1.f, 0.f, 0.f);  // avoid parallel degenerate case
+
+	glm::vec3 tailRight = glm::normalize(glm::cross(tempUp, awayFromSun));
+	glm::vec3 tailUp = glm::normalize(glm::cross(awayFromSun, tailRight));
+
+	// Rotation matrix: columns are right, up, forward(=awayFromSun)
+	glm::mat4 tailRot = glm::mat4(
+		glm::vec4(tailRight, 0.f),   // col 0 = local X
+		glm::vec4(tailUp, 0.f),   // col 1 = local Y
+		glm::vec4(awayFromSun, 0.f),   // col 2 = local Z (stretch axis)
+		glm::vec4(0.f, 0.f, 0.f, 1.f)
+	);
+
+	// Tail length grows when near sun (perihelion), shrinks at aphelion
+	float distFromSun = glm::length(cometPos);
+	float tailLength = glm::clamp(distFromSun * 0.15f + 1.5f, 1.5f, 1.f);
+	float tailWidth = 0.3f;
+
+	// Place tail center BEHIND the nucleus along awayFromSun
+	// Nucleus is at cometPos; tail root starts there and extends outward
+	glm::vec3 tailCenter = cometPos + awayFromSun * tailLength;
+
+	m_cometTailModel =
+		glm::translate(glm::mat4(1.f), tailCenter)
+		* tailRot
+		* glm::scale(glm::mat4(1.f), glm::vec3(tailWidth, tailWidth, tailLength));
+
+	m_cometTail->Update(m_cometTailModel);
+
+
+	// ── ASTEROID BELTS ────────────────────────────────────────────────
+	for (auto& inst : m_innerBelt) {
+		float angle = inst.orbitAngle + inst.orbitSpeed * (float)at;
+		glm::vec3 pos = glm::vec3(
+			cos(angle) * inst.orbitRadius,
+			inst.orbitHeight,
+			sin(angle) * inst.orbitRadius
+		);
+		// Random tumble using orbitAngle as a seed for unique rotation axis
+		glm::vec3 tumbleAxis = glm::normalize(glm::vec3(
+			sin(inst.orbitAngle),
+			cos(inst.orbitAngle * 1.3f),
+			sin(inst.orbitAngle * 0.7f)
+		));
+		glm::mat4 spin = glm::rotate(glm::mat4(1.f),
+			inst.orbitSpeed * 3.f * (float)at, tumbleAxis);
+		inst.model = glm::translate(glm::mat4(1.f), pos)
+			* spin
+			* glm::scale(glm::vec3(inst.scale));
+	}
+
+	for (auto& inst : m_outerBelt) {
+		float angle = inst.orbitAngle + inst.orbitSpeed * (float)at;
+		glm::vec3 pos = glm::vec3(
+			cos(angle) * inst.orbitRadius,
+			inst.orbitHeight,
+			sin(angle) * inst.orbitRadius
+		);
+		glm::vec3 tumbleAxis = glm::normalize(glm::vec3(
+			sin(inst.orbitAngle),
+			cos(inst.orbitAngle * 1.3f),
+			sin(inst.orbitAngle * 0.7f)
+		));
+		glm::mat4 spin = glm::rotate(glm::mat4(1.f),
+			inst.orbitSpeed * 3.f * (float)at, tumbleAxis);
+		inst.model = glm::translate(glm::mat4(1.f), pos)
+			* spin
+			* glm::scale(glm::vec3(inst.scale));
+	}
+
 	// Update ship from input state
 	UpdateShip((float)dt, m_keyFwd, m_keyBack, m_keyLeft, m_keyRight, m_keyRollL, m_keyRollR, m_keyPitchUp, m_keyPitchDown, m_mouseDX, m_mouseDY);
 	// reset mouse delta after applied
@@ -434,130 +579,6 @@ void Graphics::RenderRing()
 	glBindVertexArray(0);
 }
 
-//void Graphics::Render()
-//{
-//	//clear the screen
-//	//glClearColor(0.5, 0.2, 0.2, 1.0);
-//	glClearColor(0.0f, 0.0f, 0.05f, 1.0f); // dark space color
-//
-//	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//
-//	// Start the correct program
-//	m_shader->Enable();
-//
-//	// Send in the projection and view to the shader (stay the same while camera intrinsic(perspective) and extrinsic (view) parameters are the same
-//	glUniformMatrix4fv(m_projectionMatrix, 1, GL_FALSE, glm::value_ptr(m_camera->GetProjection()));
-//	glUniformMatrix4fv(m_viewMatrix, 1, GL_FALSE, glm::value_ptr(m_camera->GetView()));
-//
-//    // Set lighting uniforms (sun at origin)
-//	glUniform3f(m_lightPos, 0.f, 0.f, 0.f);
-//	// viewPos from camera
-//	glm::vec3 camPos = glm::vec3(0.f);
-//	// try to get camera internals via GetView matrix inverse
-//	glm::mat4 view = m_camera->GetView();
-//	glm::mat4 invView = glm::inverse(view);
-//	camPos = glm::vec3(invView[3]);
-//	glUniform3f(m_viewPos, camPos.x, camPos.y, camPos.z);
-//	glUniform3f(m_lightColor, 1.0f, 0.95f, 0.8f);
-//	glUniform1f(m_ambientStr, 0.15f);
-//	glUniform1f(m_specStr, 0.5f);
-//
-//	// Render sky sphere first with depth writes disabled
-//	if (m_skySphere != NULL) {
-//		glDepthMask(GL_FALSE);
-//		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE, glm::value_ptr(m_skySphere->GetModel()));
-//		if (m_skySphere->hasTex) {
-//			glActiveTexture(GL_TEXTURE0);
-//			glBindTexture(GL_TEXTURE_2D, m_skySphere->getTextureID());
-//			GLuint sampler = m_shader->GetUniformLocation("sp");
-//			glUniform1i(sampler, 0);
-//			m_skySphere->Render(m_positionAttrib, m_colorAttrib, m_tcAttrib, m_hasTexture);
-//		}
-//		glDepthMask(GL_TRUE);
-//	}
-//
-//	// Render the objects
-//	/*if (m_cube != NULL){
-//		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE, glm::value_ptr(m_cube->GetModel()));
-//		m_cube->Render(m_positionAttrib,m_colorAttrib);
-//	}*/
-//
-//	if (m_mesh != NULL) {
-//		glUniform1i(m_hasTexture, false);
-//		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE, glm::value_ptr(m_mesh->GetModel()));
-//		if (m_mesh->hasTex) {
-//			glActiveTexture(GL_TEXTURE0);
-//			glBindTexture(GL_TEXTURE_2D, m_mesh->getTextureID()); // corrected; previously it was m_sphere->getTextureID()
-//			GLuint sampler = m_shader->GetUniformLocation("sp");
-//			if (sampler == INVALID_UNIFORM_LOCATION)
-//			{
-//				printf("Sampler Not found not found\n");
-//			}
-//			glUniform1i(sampler, 0);
-//			m_mesh->Render(m_positionAttrib, m_colorAttrib, m_tcAttrib, m_hasTexture);
-//		}
-//	}
-//
-//	/*if (m_pyramid != NULL) {
-//		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE, glm::value_ptr(m_pyramid->GetModel()));
-//		m_pyramid->Render(m_positionAttrib, m_colorAttrib);
-//	}*/
-//
-//	if (m_sphere != NULL) {
-//		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE, glm::value_ptr(m_sphere->GetModel()));
-//		if (m_sphere->hasTex) {
-//			glActiveTexture(GL_TEXTURE0);
-//			glBindTexture(GL_TEXTURE_2D, m_sphere->getTextureID());
-//			GLuint sampler = m_shader->GetUniformLocation("sp");
-//			if (sampler == INVALID_UNIFORM_LOCATION)
-//			{
-//				printf("Sampler Not found not found\n");
-//			}
-//			glUniform1i(sampler, 0);
-//			m_sphere->Render(m_positionAttrib, m_colorAttrib, m_tcAttrib, m_hasTexture);
-//		}
-//	}
-//
-//	if (m_sphere2 != NULL) {
-//		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE, glm::value_ptr(m_sphere2->GetModel()));
-//		if (m_sphere2->hasTex) {
-//			glActiveTexture(GL_TEXTURE0);
-//			glBindTexture(GL_TEXTURE_2D, m_sphere2->getTextureID());
-//			GLuint sampler = m_shader->GetUniformLocation("sp");
-//			if (sampler == INVALID_UNIFORM_LOCATION)
-//			{
-//				printf("Sampler Not found not found\n");
-//			}
-//			glUniform1i(sampler, 0);
-//			m_sphere2->Render(m_positionAttrib, m_colorAttrib, m_tcAttrib, m_hasTexture);
-//		}
-//	}
-//
-//
-//	// Render Moon
-//	if (m_sphere3 != NULL) {
-//		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE, glm::value_ptr(m_sphere3->GetModel()));
-//		if (m_sphere3->hasTex) {
-//			glActiveTexture(GL_TEXTURE0);
-//			glBindTexture(GL_TEXTURE_2D, m_sphere3->getTextureID());
-//			GLuint sampler = m_shader->GetUniformLocation("sp");
-//			if (sampler == INVALID_UNIFORM_LOCATION)
-//			{
-//				printf("Sampler Not found not found\n");
-//			}
-//			glUniform1i(sampler, 0);
-//			m_sphere3->Render(m_positionAttrib, m_colorAttrib, m_tcAttrib, m_hasTexture);
-//		}
-//	}
-//
-//	// Get any errors from OpenGL
-//	auto error = glGetError();
-//	if (error != GL_NO_ERROR)
-//	{
-//		string val = ErrorString(error);
-//		std::cout << "Error initializing OpenGL! " << error << ", " << val << std::endl;
-//	}
-//}
 
 void Graphics::Render()
 {
@@ -597,6 +618,8 @@ void Graphics::Render()
 			m_tcAttrib, m_hasTexture);
 		glDepthMask(GL_TRUE);
 		glUniform1f(m_ambientStr, 0.15f); // restore
+		glUniform1i(m_hasNormalMap, false);
+
 	}
 
 	// ── SUN (fully emissive, no shading) ──────────────────────────────
@@ -612,28 +635,136 @@ void Graphics::Render()
 		// Restore normal lighting for planets
 		glUniform1f(m_ambientStr, 0.15f);
 		glUniform1f(m_specStr, 0.4f);
+		glUniform1i(m_hasNormalMap, false);
+
 	}
 
+
 	// ── HELPER LAMBDA to render any sphere ────────────────────────────
-	auto renderSphere = [&](Sphere* s) {
+	auto renderSphere = [&](Sphere* s, Texture* normalTex) {
 		if (s == NULL) return;
 		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE,
 			glm::value_ptr(s->GetModel()));
+
+		// Diffuse on TEXTURE0 (already bound by sampler "sp" = 0)
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, s->getTextureID());
-		s->Render(m_positionAttrib, m_colorAttrib, m_tcAttrib, m_hasTexture);
-		};
 
+		// Normal map on TEXTURE1
+		if (normalTex != nullptr && normalTex->isLoaded()) {
+			glUniform1i(m_hasNormalMap, true);
+			glUniform1i(m_normalMapSampler, 1);      // sampler reads unit 1
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, normalTex->getTextureID());
+		}
+		else {
+			glUniform1i(m_hasNormalMap, false);
+		}
+
+		s->Render(m_positionAttrib, m_colorAttrib, m_tcAttrib, m_hasTexture);
+
+		// Clean up TEXTURE1 so other draw calls aren't affected
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE0);
+		};
+	
 	// ── PLANETS ───────────────────────────────────────────────────────
-	renderSphere(m_mercury);
-	renderSphere(m_venus);
-	renderSphere(m_sphere2);   // Earth
-	renderSphere(m_sphere3);   // Moon
-	renderSphere(m_mars);
-	renderSphere(m_jupiter);
-	renderSphere(m_saturn);
-	renderSphere(m_uranus);
-	renderSphere(m_neptune);
+
+// Rocky/low-shine planets
+	glUniform1f(m_shininess, 8.f);
+	glUniform1f(m_specStr, 0.2f);
+	renderSphere(m_mercury, m_mercuryNormal);
+	renderSphere(m_mars, m_marsNormal);
+
+	// Gas giants — moderate shine
+	glUniform1f(m_shininess, 16.f);
+	glUniform1f(m_specStr, 0.3f);
+	renderSphere(m_jupiter, m_jupiterNormal);
+	renderSphere(m_saturn, nullptr);
+	renderSphere(m_uranus, m_uranusNormal);
+	renderSphere(m_neptune, m_neptuneNormal);
+
+	// Earth/Venus — higher shine (water/clouds)
+	glUniform1f(m_shininess, 32.f);
+	glUniform1f(m_specStr, 0.5f);
+	renderSphere(m_sphere2, m_earthNormal);
+	renderSphere(m_venus, m_venusNormal);
+
+	// Moon — very low shine
+	glUniform1f(m_shininess, 4.f);
+	glUniform1f(m_specStr, 0.1f);
+	renderSphere(m_sphere3, m_moonNormal);
+
+	// ── HALLEY'S COMET ────────────────────────────────────────────────
+	// HALLEY'S COMET NUCLEUS 
+	glUniform1f(m_ambientStr, 0.4f);
+	glUniform1f(m_shininess, 8.f);
+	glUniform1f(m_specStr, 0.15f);
+	glUniform1i(m_hasNormalMap, false);
+	renderSphere(m_comet, nullptr);
+
+	// ── HALLEY'S COMET TAIL (additive blend = glow) ───────────────────────────
+	if (m_cometTail != NULL) {
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE);   // additive glow
+		glDepthMask(GL_FALSE);               // don't write depth — tail is transparent
+
+		glUniform1i(m_hasNormalMap, false);
+		glUniform1f(m_ambientStr, 0.8f);
+		glUniform1f(m_specStr, 0.0f);
+		glUniform3f(m_lightColor, 0.6f, 0.8f, 1.0f);  // blue-white glow
+
+		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE,
+			glm::value_ptr(m_cometTail->GetModel()));
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, m_cometTail->getTextureID());
+		m_cometTail->Render(m_positionAttrib, m_colorAttrib, m_tcAttrib, m_hasTexture);
+
+		glDepthMask(GL_TRUE);
+		glDisable(GL_BLEND);
+
+		// Restore lighting
+		glUniform3f(m_lightColor, 1.0f, 0.95f, 0.8f);
+		glUniform1f(m_ambientStr, 0.15f);
+		glUniform1f(m_specStr, 0.4f);
+	}
+
+	// ── ASTEROID BELTS ────────────────────────────────────────────────
+	glUniform1f(m_shininess, 6.f);
+	glUniform1f(m_specStr, 0.1f);
+	glUniform1f(m_ambientStr, 0.2f);
+	glUniform1i(m_hasNormalMap, false);
+
+	// to — use renderSphere lambda which handles normal maps automatically
+	glUniform1i(m_hasNormalMap, true);
+	glUniform1i(m_normalMapSampler, 1);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, m_asteroidNormal->getTextureID());
+
+	for (auto& inst : m_innerBelt) {
+		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE,
+			glm::value_ptr(inst.model));
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, m_asteroid->getTextureID());
+		m_asteroid->Render(m_positionAttrib, m_colorAttrib,
+			m_tcAttrib, m_hasTexture);
+	}
+
+	for (auto& inst : m_outerBelt) {
+		glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE,
+			glm::value_ptr(inst.model));
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, m_asteroid->getTextureID());
+		m_asteroid->Render(m_positionAttrib, m_colorAttrib,
+			m_tcAttrib, m_hasTexture);
+	}
+
+	// Clean up
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glActiveTexture(GL_TEXTURE0);
+	glUniform1i(m_hasNormalMap, false);
 
 	// ── SATURN RING ───────────────────────────────────────────────────
 	glUniformMatrix4fv(m_modelMatrix, 1, GL_FALSE,
@@ -651,6 +782,8 @@ void Graphics::Render()
 		m_mesh->Render(m_positionAttrib, m_colorAttrib,
 			m_tcAttrib, m_hasTexture);
 		glUniform1f(m_ambientStr, 0.15f);
+		glUniform1i(m_hasNormalMap, false);
+
 	}
 
 	auto error = glGetError();
@@ -720,6 +853,11 @@ bool Graphics::collectShPrLocs() {
 	m_lightColor = m_shader->GetUniformLocation("lightColor");
 	m_ambientStr = m_shader->GetUniformLocation("ambientStrength");
 	m_specStr = m_shader->GetUniformLocation("specularStrength");
+	m_shininess = m_shader->GetUniformLocation("shininess");
+
+
+	m_hasNormalMap = m_shader->GetUniformLocation("hasNormalMap");
+	m_normalMapSampler = m_shader->GetUniformLocation("normalMap");
 
 	return anyProblem;
 }

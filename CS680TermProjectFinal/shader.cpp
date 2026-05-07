@@ -41,12 +41,13 @@ bool Shader::AddShader(GLenum ShaderType)
   {
       s = "#version 460\n"
           "layout (location = 0) in vec3 v_position;\n"
-          "layout (location = 1) in vec3 v_color;\n"
+          "layout (location = 1) in vec3 v_color;\n"      // carries vertex normals
           "layout (location = 2) in vec2 v_tc;\n"
           "out vec3 v_normal;\n"
           "out vec3 v_fragPos;\n"
           "out vec3 color;\n"
           "out vec2 tc;\n"
+          "out mat3 TBN;\n"                                // NEW: tangent-space matrix
           "uniform mat4 projectionMatrix;\n"
           "uniform mat4 viewMatrix;\n"
           "uniform mat4 modelMatrix;\n"
@@ -54,41 +55,61 @@ bool Shader::AddShader(GLenum ShaderType)
           "{\n"
           "  vec4 v = vec4(v_position, 1.0);\n"
           "  gl_Position = (projectionMatrix * viewMatrix * modelMatrix) * v;\n"
-          "  v_normal  = mat3(transpose(inverse(modelMatrix))) * v_color;\n"
+          "  mat3 normalMat = mat3(transpose(inverse(modelMatrix)));\n"
+          "  v_normal  = normalize(normalMat * v_color);\n"
           "  v_fragPos = vec3(modelMatrix * v);\n"
           "  color = v_color;\n"
           "  tc = v_tc;\n"
+          "  // Procedural tangent for sphere geometry\n"
+          "  // Sphere normal == position (unit sphere), so tangent is dP/du direction\n"
+          "  vec3 N = normalize(v_color);\n"
+          "  vec3 up = abs(N.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\n"
+          "  vec3 T = normalize(cross(up, N));\n"          // tangent along U direction
+          "  vec3 B = cross(N, T);\n"                      // bitangent along V direction
+          "  TBN = mat3(normalMat * T, normalMat * B, normalMat * N);\n"
           "}\n";
   }
   else if (ShaderType == GL_FRAGMENT_SHADER)
   {
       s = "#version 460\n"
-          "uniform sampler2D sp;\n"
+          "uniform sampler2D sp;\n"                        // diffuse  — TEXTURE0
+          "uniform sampler2D normalMap;\n"                 // NEW: normal map — TEXTURE1
           "uniform bool hasTexture;\n"
+          "uniform bool hasNormalMap;\n"                   // NEW
           "uniform vec3 lightPos;\n"
           "uniform vec3 viewPos;\n"
           "uniform vec3 lightColor;\n"
           "uniform float ambientStrength;\n"
           "uniform float specularStrength;\n"
+          "uniform float shininess;\n"
           "in vec3 v_normal;\n"
           "in vec3 v_fragPos;\n"
           "in vec3 color;\n"
           "in vec2 tc;\n"
+          "in mat3 TBN;\n"                                 // NEW
           "out vec4 frag_color;\n"
           "void main(void)\n"
           "{\n"
           "  vec3 texColor = hasTexture ? vec3(texture(sp, tc)) : color;\n"
+          "  // Normal selection: sample normal map or use interpolated vertex normal\n"
+          "  vec3 norm;\n"
+          "  if (hasNormalMap) {\n"
+          "    vec3 nmSample = texture(normalMap, tc).rgb;\n"
+          "    nmSample = nmSample * 2.0 - 1.0;\n"        // [0,1] -> [-1,1]
+          "    norm = normalize(TBN * nmSample);\n"        // world-space normal
+          "  } else {\n"
+          "    norm = normalize(v_normal);\n"
+          "  }\n"
           "  // Ambient\n"
           "  vec3 ambient = ambientStrength * lightColor * texColor;\n"
           "  // Diffuse\n"
-          "  vec3 norm     = normalize(v_normal);\n"
           "  vec3 lightDir = normalize(lightPos - v_fragPos);\n"
           "  float diff    = max(dot(norm, lightDir), 0.0);\n"
           "  vec3 diffuse  = diff * lightColor * texColor;\n"
           "  // Specular\n"
           "  vec3 viewDir    = normalize(viewPos - v_fragPos);\n"
           "  vec3 reflectDir = reflect(-lightDir, norm);\n"
-          "  float spec      = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);\n"
+          "  float spec      = pow(max(dot(viewDir, reflectDir), 0.0), shininess);\n"
           "  vec3 specular   = specularStrength * spec * lightColor;\n"
           "  frag_color = vec4(ambient + diffuse + specular, 1.0);\n"
           "}\n";

@@ -114,6 +114,8 @@ void Engine::ProcessInput(float deltaTime)
     m_graphics->setKeyState(Graphics::ROLL_R, glfwGetKey(win, GLFW_KEY_E) == GLFW_PRESS);
     m_graphics->setKeyState(Graphics::PITCH_UP, glfwGetKey(win, GLFW_KEY_UP) == GLFW_PRESS);
     m_graphics->setKeyState(Graphics::PITCH_DOWN, glfwGetKey(win, GLFW_KEY_DOWN) == GLFW_PRESS);
+    m_graphics->setKeyState(Graphics::LEFT, glfwGetKey(win, GLFW_KEY_A) == GLFW_PRESS);
+    m_graphics->setKeyState(Graphics::RIGHT, glfwGetKey(win, GLFW_KEY_D) == GLFW_PRESS);
 
     m_graphics->getCamera()->Update();
 }
