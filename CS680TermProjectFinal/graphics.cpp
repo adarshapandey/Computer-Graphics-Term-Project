@@ -280,7 +280,7 @@ void Graphics::HierarchicalUpdate2(double absoluteTime, float dt) {
 	glm::mat4 tmat, rmat, smat;
 
 	// absolute time
-	double at = absoluteTime;
+	double at = absoluteTime * 0.1;
 
 	// SUN (center, slow self-rotation)
 	ComputeTransforms(dt,
